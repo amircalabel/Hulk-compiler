@@ -196,7 +196,7 @@ Este proyecto está fuertemente inspirado en:
 - [ ] **Garbage Collector** (mark-sweep)
 - [ ] **Optimizaciones** (NaN boxing, hash table improvements)
 
-## 👥 Autores
+## 👥 Autor
 
 - Amircal Abel Metelis Matui - *Implementación inicial*
 
