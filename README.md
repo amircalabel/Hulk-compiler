@@ -511,7 +511,6 @@ hulk/
 # Compilador de HULK en C++
 
 [![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 📖 Descripción
 
