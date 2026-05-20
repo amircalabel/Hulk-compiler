@@ -1,5 +1,5 @@
 // src/scanner/Token.cpp
-#include "Token.h"
+#include "Token.hpp"
 
 std::string tokenTypeToString(TokenType type) {
     switch (type) {
