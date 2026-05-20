@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HULK Compiler
 
 [![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
@@ -504,3 +505,7 @@ hulk/
 ```
 
 ---
+=======
+# Hulk-compiler
+
+>>>>>>> f1eb7b4 (Initial commit)
