@@ -90,7 +90,7 @@ hulk/
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tu-usuario/hulk-compiler.git
+git clone https://github.com/amircalabel/Hulk-compiler.git
 cd hulk-compiler
 
 # Crear directorio de build
