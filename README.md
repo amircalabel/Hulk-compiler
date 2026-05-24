@@ -1,4 +1,4 @@
-# 🦍 HULK Compiler
+# HULK Compiler
 
 [![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.10+-green.svg)](https://cmake.org/)
