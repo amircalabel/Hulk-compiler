@@ -1,4 +1,4 @@
-# 🦍 HULK Compiler
+# HULK Compiler
 
 [![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.10+-green.svg)](https://cmake.org/)
@@ -496,7 +496,7 @@ hulk/
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=amircalabel/hulk-compiler&type=Date)](https://star-history.com/#tu-usuario/hulk-compiler&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=tu-usuario/hulk-compiler&type=Date)](https://star-history.com/#tu-usuario/hulk-compiler&Date)
 
 ---
 
