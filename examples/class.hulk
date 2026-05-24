@@ -1,0 +1,23 @@
+type Point(x: Number, y: Number) {
+    x = x;
+    y = y;
+    
+    getX(): Number => self.x;
+    getY(): Number => self.y;
+    
+    distance(): Number {
+        return sqrt(self.x ^ 2 + self.y ^ 2);
+    }
+    
+    translate(dx: Number, dy: Number) {
+        self.x := self.x + dx;
+        self.y := self.y + dy;
+    }
+}
+
+let p = new Point(3, 4) in {
+    print "Point: (" + p.getX() + ", " + p.getY() + ")";
+    print "Distance: " + p.distance();
+    p.translate(1, 1);
+    print "After translation: (" + p.getX() + ", " + p.getY() + ")";
+}
