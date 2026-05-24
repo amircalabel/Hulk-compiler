@@ -496,7 +496,7 @@ hulk/
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=amircalabel/hulk-compiler&type=24/05/2026](https://star-history.com/#amircalabel/hulk-compiler&24/05/2026)
+[![Star History Chart](https://api.star-history.com/svg?repos=amircalabel/hulk-compiler&type=24/05/2026)](https://star-history.com/#amircalabel/hulk-compiler&24/05/2026)
 
 ---
 
