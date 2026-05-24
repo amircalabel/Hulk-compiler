@@ -486,7 +486,7 @@ hulk/
 
 - **Issues**: [GitHub Issues](https://github.com/amircalabel/hulk-compiler/issues)
 - **Discusión**: [GitHub Discussions](https://github.com/amircalabel/hulk-compiler/discussions)
-- **Email**: [tu-email@ejemplo.com](mailto:abel20mat@gmail.com)
+- **Email**: [abel20mat@gmail.com](mailto:abel20mat@gmail.com)
 
 ---
 
@@ -496,7 +496,7 @@ hulk/
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=tu-usuario/hulk-compiler&type=Date)](https://star-history.com/#tu-usuario/hulk-compiler&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=amircalabel/hulk-compiler&type=Date)](https://star-history.com/#tu-usuario/hulk-compiler&Date)
 
 ---
 
