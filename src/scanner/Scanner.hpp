@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "Token.h"
+#include "Token.hpp"
 
 class Scanner {
 public:
