@@ -1,0 +1,18 @@
+// Prueba de herencia
+type Animal {
+    speak() => "";
+}
+
+type Dog inherits Animal {
+    speak() => "Woof!";
+}
+
+type Cat inherits Animal {
+    speak() => "Meow!";
+}
+
+let dog = new Dog();
+let cat = new Cat();
+
+print dog.speak();
+print cat.speak();

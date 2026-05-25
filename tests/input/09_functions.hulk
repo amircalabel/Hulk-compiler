@@ -1,0 +1,31 @@
+// Prueba de funciones básicas
+function add(a, b) => a + b;
+
+print add(5, 3);
+
+// Función con bloque
+function greet(name) {
+    return "Hello, " @ name @ "!";
+};
+
+print greet("HULK");
+
+// Función recursiva - factorial
+function factorial(n) {
+    if (n <= 1) 
+        return 1;
+    else 
+        return n * factorial(n - 1);
+};
+
+print factorial(5);  // 120
+
+// Función recursiva - fibonacci
+function fib(n) {
+    if (n <= 1) 
+        return n;
+    else 
+        return fib(n - 1) + fib(n - 2);
+};
+
+print fib(10);  // 55
