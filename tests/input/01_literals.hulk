@@ -1,0 +1,7 @@
+// Prueba de literales
+print 42;
+print 3.1416;
+print "Hello, World!";
+print true;
+print false;
+print nil;
