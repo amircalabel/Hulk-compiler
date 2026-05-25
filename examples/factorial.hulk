@@ -1,0 +1,12 @@
+function factorial(n: Number): Number {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+let result = factorial(5) in {
+    print "Factorial of 5 is: ";
+    print result;
+}
