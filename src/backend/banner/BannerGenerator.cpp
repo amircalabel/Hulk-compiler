@@ -747,4 +747,23 @@ void BannerGenerator::error(const Token& token, const std::string& message) {
     // Marcar error global
 }
 
+void BannerGenerator::beginScope() {
+    ctx.scopeDepth++;
+}
+
+void BannerGenerator::endScope() {
+    // Eliminar variables locales de este ámbito
+    std::vector<std::string> toRemove;
+    for (const auto& [name, slot] : ctx.localSlots) {
+        if (slot >= ctx.nextLocalSlot - ctx.scopeSize) {
+            toRemove.push_back(name);
+        }
+    }
+    
+    for (const auto& name : toRemove) {
+        ctx.localSlots.erase(name);
+    }
+    
+    ctx.scopeDepth--;
+}
 } // namespace hulk::backend

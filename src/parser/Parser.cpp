@@ -308,7 +308,7 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
     // Superclase opcional (sección A.7.3)
     Token superclass;
     superclass.type = TokenType::TOKEN_ERROR;
-    std::vector<Expr> superclassArguments;
+    std::vector<std::unique_ptr<Expr>> superclassArguments;  
     
     if (match(TokenType::TOKEN_INHERITS)) {
         superclass = consume(TokenType::TOKEN_IDENTIFIER, "Expect superclass name.");
@@ -316,7 +316,10 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
         // Argumentos para el constructor de la superclase
         if (match(TokenType::TOKEN_LEFT_PAREN)) {
             while (!check(TokenType::TOKEN_RIGHT_PAREN) && !isAtEnd()) {
-                superclassArguments.push_back(*expression().release());
+                auto expr = expression();
+                if (expr) {
+                    superclassArguments.push_back(std::move(expr));
+                }
             }
             consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after superclass arguments.");
         }

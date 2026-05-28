@@ -40,7 +40,10 @@ enum class TokenType {
     TOKEN_TRUE, TOKEN_FALSE, TOKEN_NIL,
 
     TOKEN_ERROR,
-    TOKEN_EOF
+    TOKEN_EOF,
+    TOKEN_AND,      // and
+    TOKEN_OR,       // or
+    TOKEN_NOT      // not
 };
 
 // Para debugging: convertir TokenType a string
@@ -49,14 +52,21 @@ std::string tokenTypeToString(TokenType type);
 // Clase Token (similar a Java pero con std::variant para literales)
 class Token {
 public:
+        // Constructor por defecto
+    Token() : type(TokenType::TOKEN_ERROR), lexeme(""), literal(std::monostate{}), line(0) {}
+
+    Token(TokenType type, const std::string& lexeme, 
+           const std::variant<std::monostate, double, std::string>& literal, int line);
+    
+    std::string toString() const;
+
     TokenType type;
     std::string lexeme;
     std::variant<std::monostate, double, std::string> literal;  // número o string
     int line;
 
-    Token(TokenType type, const std::string& lexeme, const std::variant<std::monostate, double, std::string>& literal, int line);
 
-    std::string toString() const;
+    
 };
 
 #endif // HULK_TOKEN_HPP

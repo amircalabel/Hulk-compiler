@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <cstring> 
 #include <cmath>
+#include <vector>          
+#include <unordered_map>
 
 namespace hulk::backend {
 
