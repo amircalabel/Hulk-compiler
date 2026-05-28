@@ -8,6 +8,7 @@
 #include "Value.hpp"
 #include "CallFrame.hpp"
 #include "OpCode.hpp"
+#include "../banner/BannerIR.hpp"
 
 namespace hulk::backend {
 

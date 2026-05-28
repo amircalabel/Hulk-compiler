@@ -350,7 +350,7 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
             // Es un método
             // Método tiene la misma sintaxis que función pero sin 'function'
             auto method = functionDeclaration("method");
-            if (auto* funcStmt = dynamic_cast<FunctionDeclStmt*>(method.get())) {
+            if (dynamic_cast<FunctionDeclStmt*>(method.get())) {
                 methods.push_back(std::unique_ptr<FunctionDeclStmt>(
                     static_cast<FunctionDeclStmt*>(method.release())
                 ));
@@ -360,10 +360,10 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
     
     consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     
-    return std::make_unique<ClassDeclStmt>(
-        name, typeArguments, attributes, std::move(methods),
-        superclass, superclassArguments
-    );
+   return std::unique_ptr<ClassDeclStmt>(new ClassDeclStmt(
+    name, typeArguments, attributes, std::move(methods),
+    superclass, std::move(superclassArguments)
+));
 }
 
 std::unique_ptr<Stmt> Parser::protocolDeclaration() {
