@@ -65,6 +65,8 @@ struct BannerInstr {
     std::string typeName;   // Para ALLOCATE, VCALL
     int index;              // Para índices
     double number;          // Para constantes numéricas
+
+    std::string toString() const;
 };
 
 // ============================================================

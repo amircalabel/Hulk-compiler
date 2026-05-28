@@ -31,6 +31,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
 endif()
 
 # ============================================================
+# Directorios de inclusión - ¡ESTA ES LA PARTE CLAVE!
+# ============================================================
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# ============================================================
 # Frontend
 # ============================================================
 

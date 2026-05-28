@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <cstring> 
 #include <cmath>
+#include <vector>          
+#include <unordered_map>
 
 namespace hulk::backend {
 
@@ -93,7 +96,8 @@ enum class ObjType {
     OBJ_CLOSURE,
     OBJ_CLASS,
     OBJ_INSTANCE,
-    OBJ_UPVALUE
+    OBJ_UPVALUE,
+    OBJ_NATIVE
 };
 
 struct Obj {

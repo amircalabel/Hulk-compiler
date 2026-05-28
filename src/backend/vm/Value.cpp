@@ -111,8 +111,12 @@ ObjClass::ObjClass(const std::string& name)
     : Obj(ObjType::OBJ_CLASS), name(name), superclass(nullptr) {}
 
 ObjFunction* ObjClass::findMethod(const std::string& name) const {
-    auto it = methods.find(name);
-    if (it != methods.end()) {
+     // 'methods' es el nombre del campo, pero está bien definido en el struct
+    // Si el error persiste, asegúrate de que el struct ObjClass tenga:
+    // std::unordered_map<std::string, ObjFunction*> methods;
+    
+    auto it = this->methods.find(name);  // ← usa 'this->' explícitamente
+    if (it != this->methods.end()) {
         return it->second;
     }
     if (superclass) {

@@ -70,7 +70,7 @@ void FunctionDeclStmt::accept(StmtVisitor& visitor) const {
 ClassDeclStmt::ClassDeclStmt(Token name, std::vector<Token> typeArguments,
                              std::vector<std::pair<Token, Token>> attributes,
                              std::vector<std::unique_ptr<FunctionDeclStmt>> methods,
-                             Token superclass, std::vector<Expr> superclassArguments)
+                             Token superclass, std::vector<std::unique_ptr<Expr>> superclassArguments)
     : name(name), typeArguments(std::move(typeArguments)),
       attributes(std::move(attributes)), methods(std::move(methods)),
       superclass(superclass), superclassArguments(std::move(superclassArguments)) {}
@@ -99,4 +99,4 @@ MacroDeclStmt::MacroDeclStmt(Token name, std::vector<Parameter> parameters,
 
 void MacroDeclStmt::accept(StmtVisitor& visitor) const {
     visitor.visitMacroDeclStmt(*this);
-}
+}// namespace hulk

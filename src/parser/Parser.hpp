@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include "scanner/Token.hpp"
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"

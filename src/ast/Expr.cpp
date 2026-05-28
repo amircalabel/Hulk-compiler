@@ -1,5 +1,5 @@
 // src/ast/Expr.cpp
-#include "Expr.h"
+#include "Expr.hpp"
 
 // ============================================================
 // LiteralExpr

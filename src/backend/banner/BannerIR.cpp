@@ -38,7 +38,6 @@ std::string BannerInstr::toString() const {
 std::string BannerProgram::toString() const {
     std::stringstream ss;
     
-    // .TYPES section (B.1.1)
     ss << ".TYPES\n";
     for (const auto& type : types) {
         ss << "  type " << type.name << " {\n";
@@ -52,19 +51,16 @@ std::string BannerProgram::toString() const {
     }
     ss << "\n";
     
-    // .DATA section (B.1.2)
     ss << ".DATA\n";
     for (const auto& data : this->data) {
         ss << "  " << data.label << " = \"" << data.value << "\";\n";
     }
     ss << "\n";
     
-    // .CODE section (B.1.3)
     ss << ".CODE\n";
     for (const auto& func : functions) {
         ss << "  function " << func.name << " {\n";
         
-        // PARAM declarations
         if (!func.parameters.empty()) {
             ss << "    PARAM";
             for (const auto& param : func.parameters) {
@@ -73,7 +69,6 @@ std::string BannerProgram::toString() const {
             ss << ";\n";
         }
         
-        // LOCAL declarations
         if (!func.locals.empty()) {
             ss << "    LOCAL";
             for (const auto& local : func.locals) {
@@ -82,7 +77,6 @@ std::string BannerProgram::toString() const {
             ss << ";\n";
         }
         
-        // Instructions
         for (const auto& instr : func.instructions) {
             ss << "    " << instr.toString() << ";\n";
         }

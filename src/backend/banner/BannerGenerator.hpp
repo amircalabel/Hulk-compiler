@@ -72,6 +72,9 @@ private:
         int nextLocalSlot = 0;
         int nextParamSlot = 0;
         
+        int scopeDepth = 0;
+        int scopeSize = 0;
+        
         // Labels para control flow
         int labelCounter = 0;
         std::stack<std::string> breakLabels;
@@ -98,6 +101,7 @@ private:
     void emitLoadConstant(double value);
     void emitLoadConstant(const std::string& stringValue);
     void emitLoadConstant(bool value);
+    void emitLoadConstant(std::nullptr_t);
     
     // Generación de .TYPES
     void generateTypeLayout(const ClassDeclStmt& stmt);
@@ -108,6 +112,9 @@ private:
     
     // Manejo de errores
     void error(const Token& token, const std::string& message);
+
+    void beginScope();
+    void endScope();
 };
 
 } // namespace hulk::backend

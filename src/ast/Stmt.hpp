@@ -116,12 +116,13 @@ public:
     std::vector<std::pair<Token, Token>> attributes;  // (nombre, tipoAnotacion) - A.8.3
     std::vector<std::unique_ptr<FunctionDeclStmt>> methods;
     Token superclass;                          // TOKEN_ERROR si no hay superclase (A.7.3)
-    std::vector<Expr> superclassArguments;     // argumentos para el constructor de la superclase
+    std::vector<std::unique_ptr<Expr>> superclassArguments;    // argumentos para el constructor de la superclase
 
     ClassDeclStmt(Token name, std::vector<Token> typeArguments,
                   std::vector<std::pair<Token, Token>> attributes,
                   std::vector<std::unique_ptr<FunctionDeclStmt>> methods,
-                  Token superclass, std::vector<Expr> superclassArguments);
+                  Token superclass, std::vector<std::unique_ptr<Expr>> superclassArguments);
+
     void accept(StmtVisitor& visitor) const override;
 };
 

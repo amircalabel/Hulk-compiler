@@ -308,7 +308,7 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
     // Superclase opcional (sección A.7.3)
     Token superclass;
     superclass.type = TokenType::TOKEN_ERROR;
-    std::vector<Expr> superclassArguments;
+    std::vector<std::unique_ptr<Expr>> superclassArguments;  
     
     if (match(TokenType::TOKEN_INHERITS)) {
         superclass = consume(TokenType::TOKEN_IDENTIFIER, "Expect superclass name.");
@@ -316,7 +316,10 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
         // Argumentos para el constructor de la superclase
         if (match(TokenType::TOKEN_LEFT_PAREN)) {
             while (!check(TokenType::TOKEN_RIGHT_PAREN) && !isAtEnd()) {
-                superclassArguments.push_back(*expression().release());
+                auto expr = expression();
+                if (expr) {
+                    superclassArguments.push_back(std::move(expr));
+                }
             }
             consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after superclass arguments.");
         }
@@ -347,7 +350,7 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
             // Es un método
             // Método tiene la misma sintaxis que función pero sin 'function'
             auto method = functionDeclaration("method");
-            if (auto* funcStmt = dynamic_cast<FunctionDeclStmt*>(method.get())) {
+            if (dynamic_cast<FunctionDeclStmt*>(method.get())) {
                 methods.push_back(std::unique_ptr<FunctionDeclStmt>(
                     static_cast<FunctionDeclStmt*>(method.release())
                 ));
@@ -357,10 +360,10 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
     
     consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     
-    return std::make_unique<ClassDeclStmt>(
-        name, typeArguments, attributes, std::move(methods),
-        superclass, superclassArguments
-    );
+   return std::unique_ptr<ClassDeclStmt>(new ClassDeclStmt(
+    name, typeArguments, attributes, std::move(methods),
+    superclass, std::move(superclassArguments)
+));
 }
 
 std::unique_ptr<Stmt> Parser::protocolDeclaration() {
