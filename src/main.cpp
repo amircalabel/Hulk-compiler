@@ -163,13 +163,13 @@ void run(const std::string& source) {
         return;
     }
     
-    #ifdef DEBUG_PRINT_TOKENS
+    /*#ifdef DEBUG_PRINT_TOKENS
     std::cout << "\n=== TOKENS ===" << std::endl;
     for (const auto& token : tokens) {
         std::cout << "  " << token.toString() << std::endl;
     }
     std::cout << std::endl;
-    #endif
+    #endif*/
     
     // ============================================================
     // FASE 2: PARSER
