@@ -24,6 +24,23 @@ public:
     // Punto de entrada principal
     std::vector<std::unique_ptr<Stmt>> parse();
 
+     // Para guardar y restaurar estado
+    struct Snapshot {
+        int current;
+        bool hadError;
+        bool panicMode;
+    };
+    
+    Snapshot saveSnapshot() const {
+        return {current, hadError, panicMode};
+    }
+    
+    void restoreSnapshot(const Snapshot& snap) {
+        current = snap.current;
+        hadError = snap.hadError;
+        panicMode = snap.panicMode;
+    }
+
 private:
     const std::vector<Token>& tokens;
     int current = 0;

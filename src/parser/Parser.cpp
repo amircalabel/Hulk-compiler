@@ -110,7 +110,25 @@ void Parser::synchronize() {
 std::vector<std::unique_ptr<Stmt>> Parser::parse() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
+    
     try {
+         int savedCurrent = current;
+         // INTENTAR parsear como expresión (sin consumir tokens permanentemente)
+        try {
+            auto expr = expression();
+            
+            // Si llegamos al final y no hay más tokens, es una expresión pura
+            if (isAtEnd()) {
+                // Crear un statement que imprime el resultado de la expresión
+                auto printStmt = std::make_unique<PrintStmt>(std::move(expr));
+                statements.push_back(std::move(printStmt));
+                return statements;
+            }
+        } catch (const ParseError&) {
+            // No era una expresión, restaurar estado y continuar
+            current = savedCurrent;
+        }
+        
         while (!isAtEnd()) {
             auto stmt = declaration();
             if (stmt) {

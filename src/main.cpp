@@ -290,103 +290,38 @@ void runRepl(const CompileOptions& options) {
     std::cout << std::endl;
     
     std::string line;
-    int lineNum = 1;
-    
-    // Acumulador para código multi-línea
-    std::string accumulator;
-    int braceDepth = 0;
-    bool inMultiLine = false;
     
     while (true) {
-        std::cout << (inMultiLine ? ".. " : "> ");
+        std::cout << "> ";
         std::getline(std::cin, line);
         
         if (line.empty()) continue;
         
-        // Comandos especiales
-        if (!inMultiLine && line == "exit") {
+        if (line == "exit") {
             std::cout << "Goodbye!" << std::endl;
             break;
         }
         
-        if (!inMultiLine && line == "help") {
-            std::cout << "Commands:" << std::endl;
-            std::cout << "  exit        Exit the REPL" << std::endl;
-            std::cout << "  reset       Reset compiler state" << std::endl;
-            std::cout << "  clear       Clear screen" << std::endl;
-            std::cout << "  help        Show this help" << std::endl;
-            std::cout << std::endl;
-            std::cout << "Multi-line input is automatically detected when you start a block." << std::endl;
+        if (line == "help") {
+            std::cout << "HULK REPL Commands:\n";
+            std::cout << "  exit    - Exit the REPL\n";
+            std::cout << "  help    - Show this help\n";
+            std::cout << "\nExamples:\n";
+            std::cout << "  > 1 + 2 * 3\n";
+            std::cout << "  > let x = 42 in print x;\n";
+            std::cout << "  > print \"Hello\";\n";
+            std::cout << "  > function fib(n) => if (n <= 1) n else fib(n-1) + fib(n-2);\n";
             continue;
         }
         
-        if (!inMultiLine && line == "reset") {
-            hadError = false;
-            hadResolverError = false;
-            hadTypeError = false;
-            hadRuntimeError = false;
-            std::cout << "State reset." << std::endl;
-            continue;
-        }
+        // Intentar ejecutar la línea
+        run(line);
         
-        if (!inMultiLine && line == "clear") {
-            std::cout << "\033[2J\033[1;1H";  // Clear screen (ANSI)
-            std::cout << "HULK Interpreter v0.1.0" << std::endl;
-            std::cout << "Type 'exit' to quit, 'help' for help" << std::endl;
-            std::cout << std::endl;
-            continue;
-        }
-        
-        // Acumular para multi-línea
-        accumulator += line + "\n";
-        
-        // Contar braces para determinar si estamos en un bloque
-        for (char c : line) {
-            if (c == '{' || c == '(') braceDepth++;
-            else if (c == '}' || c == ')') braceDepth--;
-        }
-        
-        // También detectar keywords que inician bloque
-        if (!inMultiLine) {
-            if (line.find("let") != std::string::npos ||
-                line.find("if") != std::string::npos ||
-                line.find("while") != std::string::npos ||
-                line.find("for") != std::string::npos ||
-                line.find("function") != std::string::npos ||
-                line.find("type") != std::string::npos) {
-                
-                // Si la línea no termina con punto y coma, esperamos más
-                if (line.back() != ';') {
-                    inMultiLine = true;
-                    continue;
-                }
-            }
-        }
-        
-        // Si estamos en multi-línea y los braces están balanceados, procesar
-        if (inMultiLine && braceDepth == 0) {
-            inMultiLine = false;
-        }
-        
-        // Si no estamos en multi-línea, procesar
-        if (!inMultiLine) {
-            auto result = compile(accumulator, options);
-            
-            if (result.success && !options.noExec) {
-                // En REPL, mostrar el resultado de la última expresión
-                // Esto se obtendría de la VM
-                // std::cout << "=> " << vm.getLastResult().toString() << std::endl;
-            }
-            
-            // Resetear para la siguiente entrada
-            accumulator.clear();
-            hadError = false;
-            hadResolverError = false;
-            hadTypeError = false;
-            hadRuntimeError = false;
-        }
-        
-        lineNum++;
+        // Resetear errores para la siguiente línea
+        hadError = false;
+        hadResolverError = false;
+        hadTypeError = false;
+        hadRuntimeError = false;
     }
 }
 
