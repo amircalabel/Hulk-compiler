@@ -5,17 +5,25 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <memory>
 
 // Frontend
 #include "scanner/Scanner.hpp"
+#include "scanner/Token.hpp"
 #include "parser/Parser.hpp"
+#include "ast/Expr.hpp"
+#include "ast/Stmt.hpp"
 #include "ast/AstPrinter.hpp"
 #include "resolver/Resolver.hpp"
 #include "inferer/TypeInferer.hpp"
+#include "interpreter/Interpreter.hpp"
 
 // Backend
 #include "backend/banner/BannerGenerator.hpp"
+#include "backend/banner/BannerIR.hpp"
 #include "backend/vm/VM.hpp"
+#include "backend/vm/Value.hpp"
+#include "backend/vm/CallFrame.hpp"
 
 // ============================================================
 // Flags de depuración (compilar con -DDEBUG para habilitar)
@@ -24,6 +32,8 @@
 // #define DEBUG_PRINT_AST
 // #define DEBUG_PRINT_BANNER
 // #define DEBUG_TRACE_EXECUTION
+using namespace hulk;
+using namespace hulk::backend;
 
 // ============================================================
 // Variables globales de error
@@ -241,6 +251,90 @@ CompileResult compile(const std::string& source, const CompileOptions& options) 
     
     result.success = true;
     return result;
+}
+
+// ============================================================
+// 3. Declaraciones adelantadas de funciones
+// ============================================================
+void run(const std::string& source);
+void runFile(const std::string& path, const CompileOptions& options);
+void runRepl(const CompileOptions& options);
+
+// ============================================================
+// Función principal de ejecución (compila y ejecuta código HULK)
+// ============================================================
+void run(const std::string& source) {
+    // ============================================================
+    // FASE 1: SCANNER (Lexer)
+    // ============================================================
+    Scanner scanner(source);
+    std::vector<Token> tokens = scanner.scanTokens();
+    
+    if (hadError) {
+        return;
+    }
+    
+    #ifdef DEBUG_PRINT_TOKENS
+    std::cout << "\n=== TOKENS ===" << std::endl;
+    for (const auto& token : tokens) {
+        std::cout << "  " << token.toString() << std::endl;
+    }
+    std::cout << std::endl;
+    #endif
+    
+    // ============================================================
+    // FASE 2: PARSER
+    // ============================================================
+    Parser parser(tokens);
+    auto statements = parser.parse();
+    
+    if (hadError) {
+        return;
+    }
+    
+    // ============================================================
+    // FASE 3: RESOLVER (Análisis de ámbito) - Placeholder
+    // ============================================================
+     Interpreter interpreter;
+     Resolver resolver(interpreter);
+     resolver.resolve(statements);
+    
+    // ============================================================
+    // FASE 4: TYPE INFERER - Placeholder
+    // ============================================================
+     TypeInferer inferer(resolver);
+     inferer.infer(statements);
+    
+    // ============================================================
+    // FASE 5: IMPRIMIR AST (para debugging)
+    // ============================================================
+    #ifdef DEBUG_PRINT_AST
+    std::cout << "\n=== AST ===" << std::endl;
+    AstPrinter printer;
+    std::cout << printer.print(statements) << std::endl;
+    #endif
+    
+    // ============================================================
+    // FASE 6: BACKEND - Generación de BANNER IR
+    // ============================================================
+     BannerGenerator generator(resolver, inferer);
+     auto bannerProgram = generator.generate(statements);
+    
+    #ifdef DEBUG_PRINT_BANNER
+    // std::cout << "\n=== BANNER IR ===" << std::endl;
+    // std::cout << bannerProgram.toString() << std::endl;
+    #endif
+    
+    // ============================================================
+    // FASE 7: VM - Ejecución
+    // ============================================================
+     VM vm;
+     auto result = vm.interpret(bannerProgram);
+    
+    // Por ahora, solo mostrar que se compiló correctamente
+    if (!hadError) {
+        std::cout << "Compilation successful!" << std::endl;
+    }
 }
 
 // ============================================================
