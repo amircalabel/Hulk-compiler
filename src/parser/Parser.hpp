@@ -23,6 +23,24 @@ public:
     
     // Punto de entrada principal
     std::vector<std::unique_ptr<Stmt>> parse();
+    std::vector<std::unique_ptr<Stmt>> parseRepl();
+
+    // Para guardar y restaurar estado
+    struct Snapshot {
+        int current;
+        bool hadError;
+        bool panicMode;
+    };
+    
+    Snapshot saveSnapshot() const {
+        return {current, hadError, panicMode};
+    }
+    
+    void restoreSnapshot(const Snapshot& snap) {
+        current = snap.current;
+        hadError = snap.hadError;
+        panicMode = snap.panicMode;
+    }
 
 private:
     const std::vector<Token>& tokens;
@@ -60,6 +78,9 @@ private:
     std::unique_ptr<Stmt> printStatement();
     std::unique_ptr<Stmt> returnStatement();
     std::unique_ptr<Stmt> blockStatement();
+    std::unique_ptr<Stmt> ifStatement();      // ← AGREGAR
+    std::unique_ptr<Stmt> whileStatement();   // ← AGREGAR
+    std::unique_ptr<Stmt> forStatement();     // ← AGREGAR
     
     // Declaraciones específicas
     std::unique_ptr<Stmt> varDeclaration();
@@ -88,9 +109,9 @@ private:
     // Expresiones específicas de HULK
     // ============================================================
     std::unique_ptr<Expr> letExpression();
-    std::unique_ptr<Expr> ifExpression();
-    std::unique_ptr<Expr> whileExpression();
-    std::unique_ptr<Expr> forExpression();
+    std::unique_ptr<Expr> ifExpression();     // Para if como expresión
+    std::unique_ptr<Expr> whileExpression();  // Para while como expresión
+    std::unique_ptr<Expr> forExpression();    // Para for como expresión
     std::unique_ptr<Expr> blockExpression();
     
     // ============================================================

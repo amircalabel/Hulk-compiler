@@ -111,12 +111,22 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
     try {
+        // Mientras no seamos al final del archivo
         while (!isAtEnd()) {
+            // Intentar parsear una declaración o statement
             auto stmt = declaration();
             if (stmt) {
                 statements.push_back(std::move(stmt));
+            } else {
+                // Si no se pudo parsear, salir del bucle
+                break;
             }
-            if (panicMode) synchronize();
+            
+            // Si estamos en modo pánico, sincronizar
+            if (panicMode) {
+                synchronize();
+                panicMode = false;
+            }
         }
     } catch (const ParseError& e) {
         // Error ya reportado
@@ -125,30 +135,87 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
     return statements;
 }
 
-std::unique_ptr<Stmt> Parser::declaration() {
+
+std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
+    std::vector<std::unique_ptr<Stmt>> statements;
+    
     try {
-        if (match(TokenType::TOKEN_FUNCTION)) {
-            return functionDeclaration("function");
+        // Guardar estado actual por si necesitamos retroceder
+        int savedCurrent = current;
+        bool savedHadError = hadError;
+        bool savedPanicMode = panicMode;
+        
+        // INTENTAR 1: Parsear como statement normal
+        try {
+            auto stmt = statement();
+            if (stmt && isAtEnd()) {
+                statements.push_back(std::move(stmt));
+                return statements;
+            }
+        } catch (const ParseError&) {
+            // No era statement, restaurar estado
+            current = savedCurrent;
+            hadError = savedHadError;
+            panicMode = savedPanicMode;
         }
-        if (match(TokenType::TOKEN_TYPE)) {
-            return classDeclaration();
+        
+        // INTENTAR 2: Parsear como expresión y envolver en print
+        try {
+            auto expr = expression();
+            if (expr && isAtEnd()) {
+                auto printStmt = std::make_unique<PrintStmt>(std::move(expr));
+                statements.push_back(std::move(printStmt));
+                return statements;
+            }
+        } catch (const ParseError&) {
+            // No era expresión, restaurar estado
+            current = savedCurrent;
+            hadError = savedHadError;
+            panicMode = savedPanicMode;
         }
-        if (match(TokenType::TOKEN_PROTOCOL)) {
-            return protocolDeclaration();
+        
+        // INTENTAR 3: Parsear como declaración
+        try {
+            auto stmt = declaration();
+            if (stmt && isAtEnd()) {
+                statements.push_back(std::move(stmt));
+                return statements;
+            }
+        } catch (const ParseError&) {
+            // No era declaración
         }
-        if (match(TokenType::TOKEN_DEF)) {
-            return macroDeclaration();
-        }
-        if (match(TokenType::TOKEN_VAR)) {
-            return varDeclaration();
-        }
-        return statement();
+        
+        // Si llegamos aquí, hubo error
+        error(peek(), "Invalid statement or expression.");
+        
     } catch (const ParseError& e) {
-        synchronize();
-        return nullptr;
+        // Error ya reportado
     }
+    
+    return statements;
 }
 
+std::unique_ptr<Stmt> Parser::declaration() {
+    // Verificar cada tipo de declaración
+    if (match(TokenType::TOKEN_FUNCTION)) {
+        return functionDeclaration("function");
+    }
+    if (match(TokenType::TOKEN_TYPE)) {
+        return classDeclaration();
+    }
+    if (match(TokenType::TOKEN_PROTOCOL)) {
+        return protocolDeclaration();
+    }
+    if (match(TokenType::TOKEN_DEF)) {
+        return macroDeclaration();
+    }
+    if (match(TokenType::TOKEN_VAR)) {
+        return varDeclaration();
+    }
+    
+    // Si no es declaración, es un statement
+    return statement();
+}
 std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::TOKEN_PRINT)) {
         return printStatement();
@@ -159,9 +226,18 @@ std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::TOKEN_LEFT_BRACE)) {
         return blockStatement();
     }
+    if (match(TokenType::TOKEN_IF)) {
+        return ifStatement();
+    }
+    if (match(TokenType::TOKEN_WHILE)) {
+        return whileStatement();
+    }
+    if (match(TokenType::TOKEN_FOR)) {
+        return forStatement();
+    }
+    // Si no es ninguna de las anteriores, es una expresión statement
     return expressionStatement();
 }
-
 // ============================================================
 // Statements específicos
 // ============================================================
@@ -812,4 +888,81 @@ std::unique_ptr<Expr> Parser::parseParenthesizedExpression() {
     auto expr = expression();
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
     return std::make_unique<GroupingExpr>(std::move(expr));
+}
+// ============================================================
+// If Statement (implementación)
+// ============================================================
+
+std::unique_ptr<Stmt> Parser::ifStatement() {
+    consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    auto condition = expression();
+    consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after if condition.");
+    
+    auto thenBranch = statement();
+    std::unique_ptr<Stmt> elseBranch = nullptr;
+    
+    if (match(TokenType::TOKEN_ELSE)) {
+        elseBranch = statement();
+    }
+    
+    // Nota: Necesitarás una clase IfStmt en Stmt.hpp
+    // Por ahora, usamos ExpressionStmt como placeholder
+    // TODO: Crear IfStmt cuando esté disponible
+    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
+    return printStmt;
+}
+
+// ============================================================
+// While Statement (implementación)
+// ============================================================
+
+std::unique_ptr<Stmt> Parser::whileStatement() {
+    consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    auto condition = expression();
+    consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    
+    auto body = statement();
+    
+    // Nota: Necesitarás una clase WhileStmt en Stmt.hpp
+    // Por ahora, usamos ExpressionStmt como placeholder
+    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
+    return printStmt;
+}
+
+// ============================================================
+// For Statement (implementación)
+// ============================================================
+
+std::unique_ptr<Stmt> Parser::forStatement() {
+    consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    
+    // Inicializador
+    std::unique_ptr<Stmt> initializer;
+    if (match(TokenType::TOKEN_SEMICOLON)) {
+        initializer = nullptr;
+    } else if (match(TokenType::TOKEN_VAR)) {
+        initializer = varDeclaration();
+    } else {
+        initializer = expressionStatement();
+    }
+    
+    // Condición
+    std::unique_ptr<Expr> condition = nullptr;
+    if (!check(TokenType::TOKEN_SEMICOLON)) {
+        condition = expression();
+    }
+    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+    
+    // Incremento
+    std::unique_ptr<Expr> increment = nullptr;
+    if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
+        increment = expression();
+    }
+    consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+    
+    auto body = statement();
+    
+    // Nota: Necesitarás una clase ForStmt en Stmt.hpp
+    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
+    return printStmt;
 }

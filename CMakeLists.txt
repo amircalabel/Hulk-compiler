@@ -41,19 +41,27 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(FRONTEND_SOURCES
     src/main.cpp
+
     # Scanner
     src/scanner/Token.cpp
     src/scanner/Scanner.cpp
+
     # AST
     src/ast/Expr.cpp
     src/ast/Stmt.cpp
     src/ast/AstPrinter.cpp
+
     # Parser
     src/parser/Parser.cpp
-    # Resolver (pendiente - implementación futura)
-    # src/resolver/Resolver.cpp
-    # Type Inferer (pendiente)
-    # src/inferer/TypeInferer.cpp
+
+    # Resolver
+    src/resolver/Resolver.cpp
+
+    # Inferer
+    src/inferer/TypeInferer.cpp
+
+    # Interpreter
+    src/interpreter/Interpreter.cpp 
 )
 
 # ============================================================
