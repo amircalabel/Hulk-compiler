@@ -32,6 +32,7 @@
 // #define DEBUG_PRINT_AST
 // #define DEBUG_PRINT_BANNER
 // #define DEBUG_TRACE_EXECUTION
+
 using namespace hulk;
 using namespace hulk::backend;
 
@@ -140,9 +141,98 @@ struct CompileResult {
     double executionTime = 0;
 };
 
-/**
- * Compila código fuente HULK a BANNER IR y opcionalmente lo ejecuta
- */
+// ============================================================
+// Declaraciones adelantadas de funciones
+// ============================================================
+void run(const std::string& source);
+void runFile(const std::string& path, const CompileOptions& options);
+void runRepl(const CompileOptions& options);
+
+// ============================================================
+// Función principal de ejecución (compila y ejecuta código HULK)
+// ============================================================
+void run(const std::string& source) {
+    // ============================================================
+    // FASE 1: SCANNER (Lexer)
+    // ============================================================
+    Scanner scanner(source);
+    std::vector<Token> tokens = scanner.scanTokens();
+    
+    if (hadError) {
+        hadError = false;
+        return;
+    }
+    
+    #ifdef DEBUG_PRINT_TOKENS
+    std::cout << "\n=== TOKENS ===" << std::endl;
+    for (const auto& token : tokens) {
+        std::cout << "  " << token.toString() << std::endl;
+    }
+    std::cout << std::endl;
+    #endif
+    
+    // ============================================================
+    // FASE 2: PARSER
+    // ============================================================
+    Parser parser(tokens);
+    auto statements = parser.parse();
+    
+    if (hadError) {
+        hadError = false;
+        return;
+    }
+    
+    // ============================================================
+    // FASE 3: RESOLVER (Análisis de ámbito)
+    // ============================================================
+    Interpreter interpreter;
+    Resolver resolver(interpreter);
+    resolver.resolve(statements);
+    
+    if (hadResolverError) {
+        hadResolverError = false;
+        return;
+    }
+    
+    // ============================================================
+    // FASE 4: TYPE INFERER (Inferencia de tipos)
+    // ============================================================
+    TypeInferer inferer(resolver);
+    inferer.infer(statements);
+    
+    if (hadTypeError) {
+        hadTypeError = false;
+        return;
+    }
+    
+    // ============================================================
+    // FASE 5: IMPRIMIR AST (para debugging)
+    // ============================================================
+    #ifdef DEBUG_PRINT_AST
+    std::cout << "\n=== AST ===" << std::endl;
+    AstPrinter printer;
+    std::cout << printer.print(statements) << std::endl;
+    #endif
+    
+    // ============================================================
+    // FASE 6: INTERPRETAR (tree-walk interpreter)
+    // ============================================================
+    try {
+        interpreter.interpret(statements);
+    } catch (const std::exception& e) {
+        std::cerr << "Runtime error: " << e.what() << std::endl;
+        hadRuntimeError = true;
+    }
+    
+    // Limpiar errores para la siguiente ejecución (REPL)
+    hadError = false;
+    hadResolverError = false;
+    hadTypeError = false;
+}
+
+// ============================================================
+// Compilación completa (con backend BANNER)
+// ============================================================
 CompileResult compile(const std::string& source, const CompileOptions& options) {
     CompileResult result;
     auto startTotal = std::chrono::high_resolution_clock::now();
@@ -184,21 +274,19 @@ CompileResult compile(const std::string& source, const CompileOptions& options) 
     // ============================================================
     // FASE 3: RESOLVER (Análisis de ámbito)
     // ============================================================
-    // Note: Interceptor para resolver (se implementará después)
-    // Por ahora, creamos un resolver que no depende del intérprete
-    struct PlaceholderInterpreter {};
-    // Resolver resolver(interpreter);
-    // resolver.resolve(result.statements);
+    Interpreter interpreter;
+    Resolver resolver(interpreter);
+    resolver.resolve(result.statements);
     
-    // if (hadResolverError) return result;
+    if (hadResolverError) return result;
     
     // ============================================================
     // FASE 4: TYPE INFERER (Inferencia de tipos)
     // ============================================================
-    // TypeInferer inferer(resolver);
-    // inferer.infer(result.statements);
+    TypeInferer inferer(resolver);
+    inferer.infer(result.statements);
     
-    // if (hadTypeError) return result;
+    if (hadTypeError) return result;
     
     auto endFrontend = std::chrono::high_resolution_clock::now();
     result.frontendTime = std::chrono::duration<double>(endFrontend - startFrontend).count();
@@ -219,10 +307,9 @@ CompileResult compile(const std::string& source, const CompileOptions& options) 
     if (!options.noExec) {
         auto startBackend = std::chrono::high_resolution_clock::now();
         
-        // Placeholder: Generador BANNER
-        // BannerGenerator generator(resolver, inferer);
-        // auto bannerProgram = generator.generate(result.statements);
-        // result.bannerProgram = std::make_unique<hulk::backend::BannerProgram>(std::move(bannerProgram));
+        BannerGenerator generator(resolver, inferer);
+        auto bannerProgram = generator.generate(result.statements);
+        result.bannerProgram = std::make_unique<hulk::backend::BannerProgram>(std::move(bannerProgram));
         
         if (options.dumpBanner && result.bannerProgram) {
             std::cout << "\n=== BANNER IR ===" << std::endl;
@@ -238,12 +325,12 @@ CompileResult compile(const std::string& source, const CompileOptions& options) 
         auto startExecution = std::chrono::high_resolution_clock::now();
         
         hulk::backend::VM vm;
-        // auto execResult = vm.interpret(*result.bannerProgram);
+        auto execResult = vm.interpret(*result.bannerProgram);
         
-        // if (execResult != hulk::backend::InterpretResult::INTERPRET_OK) {
-        //     hadRuntimeError = true;
-        //     return result;
-        // }
+        if (execResult != hulk::backend::InterpretResult::INTERPRET_OK) {
+            hadRuntimeError = true;
+            return result;
+        }
         
         auto endExecution = std::chrono::high_resolution_clock::now();
         result.executionTime = std::chrono::duration<double>(endExecution - startExecution).count();
@@ -251,90 +338,6 @@ CompileResult compile(const std::string& source, const CompileOptions& options) 
     
     result.success = true;
     return result;
-}
-
-// ============================================================
-// 3. Declaraciones adelantadas de funciones
-// ============================================================
-void run(const std::string& source);
-void runFile(const std::string& path, const CompileOptions& options);
-void runRepl(const CompileOptions& options);
-
-// ============================================================
-// Función principal de ejecución (compila y ejecuta código HULK)
-// ============================================================
-void run(const std::string& source) {
-    // ============================================================
-    // FASE 1: SCANNER (Lexer)
-    // ============================================================
-    Scanner scanner(source);
-    std::vector<Token> tokens = scanner.scanTokens();
-    
-    if (hadError) {
-        return;
-    }
-    
-    #ifdef DEBUG_PRINT_TOKENS
-    std::cout << "\n=== TOKENS ===" << std::endl;
-    for (const auto& token : tokens) {
-        std::cout << "  " << token.toString() << std::endl;
-    }
-    std::cout << std::endl;
-    #endif
-    
-    // ============================================================
-    // FASE 2: PARSER
-    // ============================================================
-    Parser parser(tokens);
-    auto statements = parser.parse();
-    
-    if (hadError) {
-        return;
-    }
-    
-    // ============================================================
-    // FASE 3: RESOLVER (Análisis de ámbito) - Placeholder
-    // ============================================================
-     Interpreter interpreter;
-     Resolver resolver(interpreter);
-     resolver.resolve(statements);
-    
-    // ============================================================
-    // FASE 4: TYPE INFERER - Placeholder
-    // ============================================================
-     TypeInferer inferer(resolver);
-     inferer.infer(statements);
-    
-    // ============================================================
-    // FASE 5: IMPRIMIR AST (para debugging)
-    // ============================================================
-    #ifdef DEBUG_PRINT_AST
-    std::cout << "\n=== AST ===" << std::endl;
-    AstPrinter printer;
-    std::cout << printer.print(statements) << std::endl;
-    #endif
-    
-    // ============================================================
-    // FASE 6: BACKEND - Generación de BANNER IR
-    // ============================================================
-     BannerGenerator generator(resolver, inferer);
-     auto bannerProgram = generator.generate(statements);
-    
-    #ifdef DEBUG_PRINT_BANNER
-    // std::cout << "\n=== BANNER IR ===" << std::endl;
-    // std::cout << bannerProgram.toString() << std::endl;
-    #endif
-    
-    // ============================================================
-    // FASE 7: VM - Ejecución
-    // ============================================================
-     VM vm;
-     auto result = vm.interpret(bannerProgram);
-    
-    // Por ahora, solo mostrar que se compiló correctamente
-    if (!hadError) {
-        std::cout << "Compilation successful!" << std::endl;
-    }
 }
 
 // ============================================================
@@ -375,6 +378,15 @@ void runFile(const std::string& path, const CompileOptions& options) {
 }
 
 // ============================================================
+// Función para el REPL (usa el tree-walk interpreter)
+// ============================================================
+
+void runReplLine(const std::string& line) {
+    // Para el REPL, usamos run() que es más simple
+    run(line);
+}
+
+// ============================================================
 // REPL (Read-Eval-Print Loop)
 // ============================================================
 
@@ -401,15 +413,15 @@ void runRepl(const CompileOptions& options) {
             std::cout << "  exit    - Exit the REPL\n";
             std::cout << "  help    - Show this help\n";
             std::cout << "\nExamples:\n";
-            std::cout << "  > 1 + 2 * 3\n";
-            std::cout << "  > let x = 42 in print x;\n";
             std::cout << "  > print \"Hello\";\n";
+            std::cout << "  > 1 + 2 * 3;\n";
+            std::cout << "  > let x = 42 in print x;\n";
             std::cout << "  > function fib(n) => if (n <= 1) n else fib(n-1) + fib(n-2);\n";
             continue;
         }
         
-        // Intentar ejecutar la línea
-        run(line);
+        // Ejecutar la línea
+        runReplLine(line);
         
         // Resetear errores para la siguiente línea
         hadError = false;
