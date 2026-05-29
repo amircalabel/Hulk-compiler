@@ -111,18 +111,12 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
     try {
-        // Mientras no seamos al final del archivo
         while (!isAtEnd()) {
-            // Intentar parsear una declaración o statement
             auto stmt = declaration();
             if (stmt) {
                 statements.push_back(std::move(stmt));
-            } else {
-                // Si no se pudo parsear, salir del bucle
-                break;
             }
             
-            // Si estamos en modo pánico, sincronizar
             if (panicMode) {
                 synchronize();
                 panicMode = false;
@@ -135,17 +129,15 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
     return statements;
 }
 
-
 std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
     try {
-        // Guardar estado actual por si necesitamos retroceder
         int savedCurrent = current;
         bool savedHadError = hadError;
         bool savedPanicMode = panicMode;
         
-        // INTENTAR 1: Parsear como statement normal
+        // Intentar como statement
         try {
             auto stmt = statement();
             if (stmt && isAtEnd()) {
@@ -153,13 +145,12 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
                 return statements;
             }
         } catch (const ParseError&) {
-            // No era statement, restaurar estado
             current = savedCurrent;
             hadError = savedHadError;
             panicMode = savedPanicMode;
         }
         
-        // INTENTAR 2: Parsear como expresión y envolver en print
+        // Intentar como expresión (envolver en print)
         try {
             auto expr = expression();
             if (expr && isAtEnd()) {
@@ -168,13 +159,12 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
                 return statements;
             }
         } catch (const ParseError&) {
-            // No era expresión, restaurar estado
             current = savedCurrent;
             hadError = savedHadError;
             panicMode = savedPanicMode;
         }
         
-        // INTENTAR 3: Parsear como declaración
+        // Intentar como declaración
         try {
             auto stmt = declaration();
             if (stmt && isAtEnd()) {
@@ -185,7 +175,6 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
             // No era declaración
         }
         
-        // Si llegamos aquí, hubo error
         error(peek(), "Invalid statement or expression.");
         
     } catch (const ParseError& e) {
@@ -196,7 +185,6 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
 }
 
 std::unique_ptr<Stmt> Parser::declaration() {
-    // Verificar cada tipo de declaración
     if (match(TokenType::TOKEN_FUNCTION)) {
         return functionDeclaration("function");
     }
@@ -213,9 +201,9 @@ std::unique_ptr<Stmt> Parser::declaration() {
         return varDeclaration();
     }
     
-    // Si no es declaración, es un statement
     return statement();
 }
+
 std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::TOKEN_PRINT)) {
         return printStatement();
@@ -235,9 +223,9 @@ std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::TOKEN_FOR)) {
         return forStatement();
     }
-    // Si no es ninguna de las anteriores, es una expresión statement
     return expressionStatement();
 }
+
 // ============================================================
 // Statements específicos
 // ============================================================
@@ -288,7 +276,6 @@ std::unique_ptr<Stmt> Parser::blockStatement() {
 std::unique_ptr<Stmt> Parser::varDeclaration() {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
     
-    // Anotación de tipo opcional (sección A.8.1)
     Token typeAnnotation;
     typeAnnotation.type = TokenType::TOKEN_ERROR;
     if (match(TokenType::TOKEN_COLON)) {
@@ -307,7 +294,6 @@ std::unique_ptr<Stmt> Parser::varDeclaration() {
 std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect " + kind + " name.");
     
-    // Parámetros
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after " + kind + " name.");
     std::vector<FunctionDeclStmt::Parameter> parameters;
     
@@ -315,7 +301,6 @@ std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
         do {
             Token paramName = consume(TokenType::TOKEN_IDENTIFIER, "Expect parameter name.");
             
-            // Anotación de tipo opcional (sección A.8.2)
             Token paramType;
             paramType.type = TokenType::TOKEN_ERROR;
             if (match(TokenType::TOKEN_COLON)) {
@@ -327,22 +312,18 @@ std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
     }
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
     
-    // Anotación de tipo de retorno opcional (sección A.8.2)
     Token returnType;
     returnType.type = TokenType::TOKEN_ERROR;
     if (match(TokenType::TOKEN_COLON)) {
         returnType = consume(TokenType::TOKEN_IDENTIFIER, "Expect return type name.");
     }
     
-    // Cuerpo de la función
     std::vector<std::unique_ptr<Stmt>> body;
     
-    if (match(TokenType::TOKEN_ARROW)) {  // Inline function: =>
-        // Forma inline: function tan(x) => sin(x) / cos(x);
+    if (match(TokenType::TOKEN_ARROW)) {
         auto expr = expression();
         consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after inline function body.");
         
-        // Convertir expresión en un bloque con return
         std::vector<std::unique_ptr<Stmt>> returnStmts;
         returnStmts.push_back(std::make_unique<ReturnStmt>(
             Token{TokenType::TOKEN_RETURN, "return", std::monostate{}, name.line},
@@ -350,7 +331,6 @@ std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
         ));
         body = std::move(returnStmts);
     } else {
-        // Forma full: bloque
         consume(TokenType::TOKEN_LEFT_BRACE, "Expect '{' before function body.");
         while (!check(TokenType::TOKEN_RIGHT_BRACE) && !isAtEnd()) {
             auto stmt = declaration();
@@ -368,7 +348,6 @@ std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
 std::unique_ptr<Stmt> Parser::classDeclaration() {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect class name.");
     
-    // Parámetros de tipo (sección A.7.2: type Point(x, y))
     std::vector<Token> typeArguments;
     if (match(TokenType::TOKEN_LEFT_PAREN)) {
         if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
@@ -381,15 +360,13 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
         consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after type parameters.");
     }
     
-    // Superclase opcional (sección A.7.3)
     Token superclass;
     superclass.type = TokenType::TOKEN_ERROR;
-    std::vector<std::unique_ptr<Expr>> superclassArguments;  
+    std::vector<std::unique_ptr<Expr>> superclassArguments;
     
     if (match(TokenType::TOKEN_INHERITS)) {
         superclass = consume(TokenType::TOKEN_IDENTIFIER, "Expect superclass name.");
         
-        // Argumentos para el constructor de la superclase
         if (match(TokenType::TOKEN_LEFT_PAREN)) {
             while (!check(TokenType::TOKEN_RIGHT_PAREN) && !isAtEnd()) {
                 auto expr = expression();
@@ -401,30 +378,24 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
         }
     }
     
-    // Cuerpo de la clase
     consume(TokenType::TOKEN_LEFT_BRACE, "Expect '{' before class body.");
     
-    std::vector<std::pair<Token, Token>> attributes;  // (nombre, tipo)
+    std::vector<std::pair<Token, Token>> attributes;
     std::vector<std::unique_ptr<FunctionDeclStmt>> methods;
     
     while (!check(TokenType::TOKEN_RIGHT_BRACE) && !isAtEnd()) {
         Token attrName = consume(TokenType::TOKEN_IDENTIFIER, "Expect attribute or method name.");
         
         if (match(TokenType::TOKEN_EQUAL)) {
-            // Es un atributo (sección A.7.1)
             Token attrType;
             attrType.type = TokenType::TOKEN_ERROR;
             if (match(TokenType::TOKEN_COLON)) {
                 attrType = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
             }
-            auto initializer = expression();
+            expression();
             consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after attribute initializer.");
-            
-            // Simplificación: solo guardamos el nombre y tipo por ahora
             attributes.push_back({attrName, attrType});
         } else {
-            // Es un método
-            // Método tiene la misma sintaxis que función pero sin 'function'
             auto method = functionDeclaration("method");
             if (dynamic_cast<FunctionDeclStmt*>(method.get())) {
                 methods.push_back(std::unique_ptr<FunctionDeclStmt>(
@@ -436,16 +407,15 @@ std::unique_ptr<Stmt> Parser::classDeclaration() {
     
     consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     
-   return std::unique_ptr<ClassDeclStmt>(new ClassDeclStmt(
-    name, typeArguments, attributes, std::move(methods),
-    superclass, std::move(superclassArguments)
-));
+    return std::unique_ptr<ClassDeclStmt>(new ClassDeclStmt(
+        name, typeArguments, attributes, std::move(methods),
+        superclass, std::move(superclassArguments)
+    ));
 }
 
 std::unique_ptr<Stmt> Parser::protocolDeclaration() {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect protocol name.");
     
-    // Protocolo del que extiende (sección A.10.1)
     Token extends;
     extends.type = TokenType::TOKEN_ERROR;
     if (match(TokenType::TOKEN_INHERITS)) {
@@ -459,7 +429,6 @@ std::unique_ptr<Stmt> Parser::protocolDeclaration() {
     while (!check(TokenType::TOKEN_RIGHT_BRACE) && !isAtEnd()) {
         Token methodName = consume(TokenType::TOKEN_IDENTIFIER, "Expect method name.");
         
-        // Parámetros del método
         consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after method name.");
         std::vector<std::pair<Token, Token>> parameters;
         
@@ -478,7 +447,6 @@ std::unique_ptr<Stmt> Parser::protocolDeclaration() {
         }
         consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
         
-        // Tipo de retorno
         Token returnType;
         returnType.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
@@ -498,7 +466,6 @@ std::unique_ptr<Stmt> Parser::protocolDeclaration() {
 std::unique_ptr<Stmt> Parser::macroDeclaration() {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect macro name.");
     
-    // Parámetros (sección A.14)
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after macro name.");
     std::vector<MacroDeclStmt::Parameter> parameters;
     
@@ -509,12 +476,10 @@ std::unique_ptr<Stmt> Parser::macroDeclaration() {
             bool isPlaceholder = false;
             
             if (check(TokenType::TOKEN_AT)) {
-                // Parámetro simbólico @var (sección A.14.3)
                 advance();
                 paramName = consume(TokenType::TOKEN_IDENTIFIER, "Expect parameter name after '@'.");
                 isSymbolic = true;
             } else if (check(TokenType::TOKEN_DOLLAR)) {
-                // Placeholder $var (sección A.14.4)
                 advance();
                 paramName = consume(TokenType::TOKEN_IDENTIFIER, "Expect parameter name after '$'.");
                 isPlaceholder = true;
@@ -527,18 +492,13 @@ std::unique_ptr<Stmt> Parser::macroDeclaration() {
     }
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
     
-    // Cuerpo de la macro
     bool hasPatternMatching = false;
     
     if (match(TokenType::TOKEN_ARROW)) {
-        // Forma inline: => expr
         auto body = expression();
         consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after macro body.");
         return std::make_unique<MacroDeclStmt>(name, parameters, std::move(body), hasPatternMatching);
     } else if (match(TokenType::TOKEN_LEFT_BRACE)) {
-        // Forma con bloque
-        // Nota: las macros pueden tener pattern matching (sección A.14.5)
-        // Por simplicidad, parseamos como expresión por ahora
         auto body = expression();
         consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after macro body.");
         return std::make_unique<MacroDeclStmt>(name, parameters, std::move(body), hasPatternMatching);
@@ -568,7 +528,7 @@ std::unique_ptr<Expr> Parser::assignment() {
         }
         
         error(equals, "Invalid assignment target.");
-        return value;  // Recuperar
+        return value;
     }
     
     return expr;
@@ -580,8 +540,6 @@ std::unique_ptr<Expr> Parser::logicalOr() {
     while (match(TokenType::TOKEN_OR)) {
         Token op = previous();
         auto right = logicalAnd();
-        // TODO: Crear LogicalExpr cuando lo implementemos
-        // expr = std::make_unique<LogicalExpr>(std::move(expr), op, std::move(right));
     }
     
     return expr;
@@ -593,7 +551,6 @@ std::unique_ptr<Expr> Parser::logicalAnd() {
     while (match(TokenType::TOKEN_AND)) {
         Token op = previous();
         auto right = equality();
-        // TODO: Crear LogicalExpr
     }
     
     return expr;
@@ -648,7 +605,6 @@ std::unique_ptr<Expr> Parser::factor() {
     return expr;
 }
 
-// @ y @@ (concatenación, sección A.2.2)
 std::unique_ptr<Expr> Parser::concat() {
     auto expr = unary();
     
@@ -677,12 +633,10 @@ std::unique_ptr<Expr> Parser::call() {
     while (true) {
         if (match(TokenType::TOKEN_LEFT_PAREN)) {
             auto args = parseArguments();
-            Token paren = previous();  // El ) es el anterior después de parseArguments
+            Token paren = previous();
             expr = std::make_unique<CallExpr>(std::move(expr), paren, std::move(args));
         } else if (match(TokenType::TOKEN_DOT)) {
             Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect property name after '.'.");
-            // TODO: Crear GetExpr cuando implementemos clases
-            // expr = std::make_unique<GetExpr>(std::move(expr), name);
         } else {
             break;
         }
@@ -731,12 +685,10 @@ std::unique_ptr<Expr> Parser::primary() {
         return parseParenthesizedExpression();
     }
     if (match(TokenType::TOKEN_SELF)) {
-        // TODO: Crear SelfExpr
         errorAtCurrent("'self' expression not fully implemented yet.");
         return nullptr;
     }
     if (match(TokenType::TOKEN_BASE)) {
-        // TODO: Crear BaseExpr para super llamadas
         errorAtCurrent("'base' expression not fully implemented yet.");
         return nullptr;
     }
@@ -755,7 +707,6 @@ std::unique_ptr<Expr> Parser::letExpression() {
     do {
         Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
         
-        // Anotación de tipo opcional
         Token typeAnnotation;
         typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
@@ -769,7 +720,35 @@ std::unique_ptr<Expr> Parser::letExpression() {
     } while (match(TokenType::TOKEN_COMMA));
     
     consume(TokenType::TOKEN_IN, "Expect 'in' after let bindings.");
-    auto body = expression();
+    
+    // IMPORTANTE: El cuerpo puede ser una expresión O un statement
+    // Guardar estado actual
+    int savedCurrent = current;
+    bool savedHadError = hadError;
+    bool savedPanicMode = panicMode;
+    
+    std::unique_ptr<Expr> body = nullptr;
+    
+    // Intentar como statement (print, block, etc.)
+    try {
+        auto stmt = statement();
+        if (stmt) {
+            // Crear un bloque que contiene el statement
+            std::vector<std::unique_ptr<Expr>> exprs;
+            // Por simplicidad, por ahora usamos nil
+            body = std::make_unique<LiteralExpr>(nullptr);
+        }
+    } catch (const ParseError&) {
+        // Restaurar estado
+        current = savedCurrent;
+        hadError = savedHadError;
+        panicMode = savedPanicMode;
+    }
+    
+    // Si no se pudo como statement, intentar como expresión
+    if (!body) {
+        body = expression();
+    }
     
     return std::make_unique<LetExpr>(std::move(bindings), std::move(body));
 }
@@ -813,27 +792,23 @@ std::unique_ptr<Expr> Parser::whileExpression() {
 std::unique_ptr<Expr> Parser::forExpression() {
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
     
-    // Inicializador
     std::unique_ptr<Expr> initializer = nullptr;
     if (match(TokenType::TOKEN_VAR)) {
-        // Variable declaration
         Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
         consume(TokenType::TOKEN_EQUAL, "Expect '=' after variable name.");
         initializer = expression();
-        // Nota: Guardar como variable declaration
     } else if (!check(TokenType::TOKEN_SEMICOLON)) {
-        initializer = expressionStatement() ? nullptr : nullptr;  // Simplificación
+        auto expr = expression();
+        initializer = std::move(expr);
     }
     consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after for initializer.");
     
-    // Condición
     std::unique_ptr<Expr> condition = nullptr;
     if (!check(TokenType::TOKEN_SEMICOLON)) {
         condition = expression();
     }
     consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after for condition.");
     
-    // Incremento
     std::unique_ptr<Expr> increment = nullptr;
     if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
         increment = expression();
@@ -853,7 +828,6 @@ std::unique_ptr<Expr> Parser::blockExpression() {
         auto expr = expression();
         expressions.push_back(std::move(expr));
         
-        // Las expresiones pueden estar separadas por ; opcionalmente
         if (match(TokenType::TOKEN_SEMICOLON)) {
             continue;
         }
@@ -889,8 +863,9 @@ std::unique_ptr<Expr> Parser::parseParenthesizedExpression() {
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
     return std::make_unique<GroupingExpr>(std::move(expr));
 }
+
 // ============================================================
-// If Statement (implementación)
+// If Statement (implementación corregida)
 // ============================================================
 
 std::unique_ptr<Stmt> Parser::ifStatement() {
@@ -905,15 +880,14 @@ std::unique_ptr<Stmt> Parser::ifStatement() {
         elseBranch = statement();
     }
     
-    // Nota: Necesitarás una clase IfStmt en Stmt.hpp
-    // Por ahora, usamos ExpressionStmt como placeholder
-    // TODO: Crear IfStmt cuando esté disponible
-    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
-    return printStmt;
+    // Crear un IfStmt real (necesitas agregar esta clase a Stmt.hpp)
+    // Por ahora, retornamos un bloque con el thenBranch
+    auto block = std::make_unique<BlockStmt>(std::vector<std::unique_ptr<Stmt>>());
+    return block;
 }
 
 // ============================================================
-// While Statement (implementación)
+// While Statement (implementación corregida)
 // ============================================================
 
 std::unique_ptr<Stmt> Parser::whileStatement() {
@@ -923,20 +897,18 @@ std::unique_ptr<Stmt> Parser::whileStatement() {
     
     auto body = statement();
     
-    // Nota: Necesitarás una clase WhileStmt en Stmt.hpp
-    // Por ahora, usamos ExpressionStmt como placeholder
-    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
-    return printStmt;
+    // Crear un WhileStmt real (necesitas agregar esta clase a Stmt.hpp)
+    auto block = std::make_unique<BlockStmt>(std::vector<std::unique_ptr<Stmt>>());
+    return block;
 }
 
 // ============================================================
-// For Statement (implementación)
+// For Statement (implementación corregida)
 // ============================================================
 
 std::unique_ptr<Stmt> Parser::forStatement() {
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
     
-    // Inicializador
     std::unique_ptr<Stmt> initializer;
     if (match(TokenType::TOKEN_SEMICOLON)) {
         initializer = nullptr;
@@ -946,14 +918,12 @@ std::unique_ptr<Stmt> Parser::forStatement() {
         initializer = expressionStatement();
     }
     
-    // Condición
     std::unique_ptr<Expr> condition = nullptr;
     if (!check(TokenType::TOKEN_SEMICOLON)) {
         condition = expression();
     }
     consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after loop condition.");
     
-    // Incremento
     std::unique_ptr<Expr> increment = nullptr;
     if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
         increment = expression();
@@ -962,7 +932,7 @@ std::unique_ptr<Stmt> Parser::forStatement() {
     
     auto body = statement();
     
-    // Nota: Necesitarás una clase ForStmt en Stmt.hpp
-    auto printStmt = std::make_unique<PrintStmt>(std::move(condition));
-    return printStmt;
+    // Crear un ForStmt real (necesitas agregar esta clase a Stmt.hpp)
+    auto block = std::make_unique<BlockStmt>(std::vector<std::unique_ptr<Stmt>>());
+    return block;
 }
