@@ -14,6 +14,7 @@ namespace hulk {
 
 class AstPrinter : public ExprVisitor, public StmtVisitor {
 public:
+    // Métodos públicos de impresión
     std::string print(const Expr& expr);
     std::string print(const Stmt& stmt);
     std::string print(const std::vector<std::unique_ptr<Stmt>>& statements);
@@ -50,6 +51,9 @@ private:
     void indent();
     void parenthesize(const std::string& name, const std::vector<std::string>& parts);
     std::string literalToString(const std::variant<double, std::string, bool, std::nullptr_t>& value);
+    
+    // Función auxiliar para imprimir expresiones sin afectar el output principal
+    std::string printExpr(const Expr& expr);  // ← AGREGAR ESTA LÍNEA
 };
 
 } // namespace hulk
