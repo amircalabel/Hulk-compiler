@@ -63,7 +63,39 @@ FunctionDeclStmt::FunctionDeclStmt(Token name, std::vector<Parameter> parameters
 void FunctionDeclStmt::accept(StmtVisitor& visitor) const {
     visitor.visitFunctionDeclStmt(*this);
 }
+// ============================================================
+// IfStmt
+// ============================================================
+IfStmt::IfStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> thenBranch,
+               std::unique_ptr<Stmt> elseBranch)
+    : condition(std::move(condition)), thenBranch(std::move(thenBranch)),
+      elseBranch(std::move(elseBranch)) {}
 
+void IfStmt::accept(StmtVisitor& visitor) const {
+    visitor.visitIfStmt(*this);
+}
+
+// ============================================================
+// WhileStmt
+// ============================================================
+WhileStmt::WhileStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> body)
+    : condition(std::move(condition)), body(std::move(body)) {}
+
+void WhileStmt::accept(StmtVisitor& visitor) const {
+    visitor.visitWhileStmt(*this);
+}
+
+// ============================================================
+// ForStmt
+// ============================================================
+ForStmt::ForStmt(std::unique_ptr<Stmt> initializer, std::unique_ptr<Expr> condition,
+                 std::unique_ptr<Expr> increment, std::unique_ptr<Stmt> body)
+    : initializer(std::move(initializer)), condition(std::move(condition)),
+      increment(std::move(increment)), body(std::move(body)) {}
+
+void ForStmt::accept(StmtVisitor& visitor) const {
+    visitor.visitForStmt(*this);
+}
 // ============================================================
 // ClassDeclStmt
 // ============================================================

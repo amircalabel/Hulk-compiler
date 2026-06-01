@@ -10,6 +10,8 @@
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
 
+namespace hulk {
+
 // Clase de error del parser
 class ParseError : public std::runtime_error {
 public:
@@ -46,13 +48,10 @@ private:
     const std::vector<Token>& tokens;
     int current = 0;
     
-    // Variables globales de error (simulando las del main)
     bool hadError = false;
     bool panicMode = false;
 
-    // ============================================================
     // Helpers básicos
-    // ============================================================
     bool isAtEnd() const;
     Token peek() const;
     Token previous() const;
@@ -67,9 +66,7 @@ private:
     void error(const Token& token, const std::string& message);
     void errorAtCurrent(const std::string& message);
     
-    // ============================================================
     // Parsing de declarations (top-level)
-    // ============================================================
     std::unique_ptr<Stmt> declaration();
     std::unique_ptr<Stmt> statement();
     
@@ -78,9 +75,9 @@ private:
     std::unique_ptr<Stmt> printStatement();
     std::unique_ptr<Stmt> returnStatement();
     std::unique_ptr<Stmt> blockStatement();
-    std::unique_ptr<Stmt> ifStatement();      // ← AGREGAR
-    std::unique_ptr<Stmt> whileStatement();   // ← AGREGAR
-    std::unique_ptr<Stmt> forStatement();     // ← AGREGAR
+    std::unique_ptr<Stmt> ifStatement();
+    std::unique_ptr<Stmt> whileStatement();
+    std::unique_ptr<Stmt> forStatement();
     
     // Declaraciones específicas
     std::unique_ptr<Stmt> varDeclaration();
@@ -89,9 +86,7 @@ private:
     std::unique_ptr<Stmt> protocolDeclaration();
     std::unique_ptr<Stmt> macroDeclaration();
     
-    // ============================================================
     // Parsing de expresiones (Pratt parser)
-    // ============================================================
     std::unique_ptr<Expr> expression();
     std::unique_ptr<Expr> assignment();
     std::unique_ptr<Expr> logicalOr();
@@ -100,28 +95,23 @@ private:
     std::unique_ptr<Expr> comparison();
     std::unique_ptr<Expr> term();
     std::unique_ptr<Expr> factor();
-    std::unique_ptr<Expr> concat();      // @ y @@ (HULK específico)
+    std::unique_ptr<Expr> concat();      // @ y @@
     std::unique_ptr<Expr> unary();
     std::unique_ptr<Expr> call();
     std::unique_ptr<Expr> primary();
     
-    // ============================================================
     // Expresiones específicas de HULK
-    // ============================================================
     std::unique_ptr<Expr> letExpression();
-    std::unique_ptr<Expr> ifExpression();     // Para if como expresión
-    std::unique_ptr<Expr> whileExpression();  // Para while como expresión
-    std::unique_ptr<Expr> forExpression();    // Para for como expresión
+    std::unique_ptr<Expr> ifExpression();
+    std::unique_ptr<Expr> whileExpression();
+    std::unique_ptr<Expr> forExpression();
     std::unique_ptr<Expr> blockExpression();
     
-    // ============================================================
     // Helpers para parsing
-    // ============================================================
-    TokenType annotationType();  // para : Number
-    std::unique_ptr<Expr> parseLetBinding();
     std::vector<std::unique_ptr<Expr>> parseArguments();
-    std::vector<Token> parseParameters();
     std::unique_ptr<Expr> parseParenthesizedExpression();
 };
+
+} // namespace hulk
 
 #endif // HULK_PARSER_HPP
