@@ -108,27 +108,44 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
 }
 
 std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
-    return parse();
-}
-
-std::unique_ptr<Stmt> Parser::declaration() {
-    if (match(TokenType::TOKEN_FUNCTION)) return functionDeclaration("function");
-    if (match(TokenType::TOKEN_TYPE)) return classDeclaration();
-    if (match(TokenType::TOKEN_VAR)) return varDeclaration();
-    return statement();
-}
-
-std::unique_ptr<Stmt> Parser::statement() {
-    if (match(TokenType::TOKEN_PRINT)) return printStatement();
-    if (match(TokenType::TOKEN_RETURN)) return returnStatement();
-    if (match(TokenType::TOKEN_LEFT_BRACE)) return blockStatement();
-    return expressionStatement();
-}
-
-std::unique_ptr<Stmt> Parser::expressionStatement() {
-    auto expr = expression();
-    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after expression.");
-    return std::make_unique<ExpressionStmt>(std::move(expr));
+    std::vector<std::unique_ptr<Stmt>> statements;
+    
+    try {
+        // Caso especial: let ... in print ...
+        if (check(TokenType::TOKEN_LET)) {
+            // Guardar posición actual
+            int letStart = current;
+            
+            try {
+                // Intentar parsear como let expresión normalmente
+                auto expr = letExpression();
+                if (expr && isAtEnd()) {
+                    // Si llegamos al final, mostrar resultado
+                    auto printStmt = std::make_unique<PrintStmt>(std::move(expr));
+                    statements.push_back(std::move(printStmt));
+                    return statements;
+                }
+            } catch (const ParseError&) {
+                // Restaurar posición
+                current = letStart;
+                hadError = false;
+                panicMode = false;
+            }
+        }
+        
+        // Parsear normalmente
+        while (!isAtEnd()) {
+            auto stmt = declaration();
+            if (stmt) {
+                statements.push_back(std::move(stmt));
+            }
+            if (panicMode) synchronize();
+        }
+    } catch (const ParseError&) {
+        // Error ya reportado
+    }
+    
+    return statements;
 }
 
 std::unique_ptr<Stmt> Parser::printStatement() {
@@ -147,6 +164,12 @@ std::unique_ptr<Stmt> Parser::returnStatement() {
     return std::make_unique<ReturnStmt>(keyword, std::move(value));
 }
 
+std::unique_ptr<Stmt> Parser::expressionStatement() {
+    auto expr = expression();
+    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after expression.");
+    return std::make_unique<ExpressionStmt>(std::move(expr));
+}
+
 std::unique_ptr<Stmt> Parser::blockStatement() {
     std::vector<std::unique_ptr<Stmt>> statements;
     while (!check(TokenType::TOKEN_RIGHT_BRACE) && !isAtEnd()) {
@@ -156,6 +179,32 @@ std::unique_ptr<Stmt> Parser::blockStatement() {
     }
     consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after block.");
     return std::make_unique<BlockStmt>(std::move(statements));
+}
+
+std::unique_ptr<Stmt> Parser::statement() {
+    if (match(TokenType::TOKEN_PRINT)) {
+        return printStatement();
+    }
+    if (match(TokenType::TOKEN_RETURN)) {
+        return returnStatement();
+    }
+    if (match(TokenType::TOKEN_LEFT_BRACE)) {
+        return blockStatement();
+    }
+    return expressionStatement();
+}
+
+std::unique_ptr<Stmt> Parser::declaration() {
+    if (match(TokenType::TOKEN_FUNCTION)) {
+        return functionDeclaration("function");
+    }
+    if (match(TokenType::TOKEN_TYPE)) {
+        return classDeclaration();
+    }
+    if (match(TokenType::TOKEN_VAR)) {
+        return varDeclaration();
+    }
+    return statement();
 }
 
 std::unique_ptr<Stmt> Parser::varDeclaration() {
@@ -461,11 +510,11 @@ std::unique_ptr<Expr> Parser::primary() {
         std::string value = std::get<std::string>(previous().literal);
         return std::make_unique<LiteralExpr>(value);
     }
-    if (match(TokenType::TOKEN_IDENTIFIER)) {
-        return std::make_unique<VariableExpr>(previous());
-    }
     if (match(TokenType::TOKEN_LET)) {
         return letExpression();
+    }
+    if (match(TokenType::TOKEN_IDENTIFIER)) {
+        return std::make_unique<VariableExpr>(previous());
     }
     if (match(TokenType::TOKEN_IF)) {
         return ifExpression();

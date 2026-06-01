@@ -51,6 +51,12 @@ void run(const std::string& source) {
     // FASE 1: SCANNER
     Scanner scanner(source);
     std::vector<Token> tokens = scanner.scanTokens();
+
+    std::cout << "=== TOKENS ===" << std::endl;
+    for (const auto& token : tokens) {
+        std::cout << "  " << token.toString() << std::endl;
+    }
+    std::cout << "==============" << std::endl;
     
     if (hadError) {
         hadError = false;
@@ -123,6 +129,15 @@ void runRepl() {
 // ============================================================
 
 int main(int argc, char* argv[]) {
+    // En main(), antes de procesar argumentos, agrega:
+    if (argc == 2 && std::string(argv[1]) == "--version") {
+        std::cout << "HULK Compiler v0.1.0" << std::endl;
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "--help") {
+        std::cout << "Usage: hulk [script]" << std::endl;
+        return 0;
+    }
     if (argc == 1) {
         runRepl();
     } else if (argc == 2) {
