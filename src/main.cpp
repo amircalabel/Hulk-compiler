@@ -59,7 +59,7 @@ void run(const std::string& source) {
     
     // FASE 2: PARSER
     Parser parser(tokens);
-    auto statements = parser.parse();
+    auto statements = parser.parseRepl();
     
     if (hadError) {
         hadError = false;

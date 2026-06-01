@@ -12,7 +12,6 @@
 
 namespace hulk {
 
-// Clase de error del parser
 class ParseError : public std::runtime_error {
 public:
     explicit ParseError(const std::string& message)
@@ -23,31 +22,12 @@ class Parser {
 public:
     explicit Parser(const std::vector<Token>& tokens);
     
-    // Punto de entrada principal
     std::vector<std::unique_ptr<Stmt>> parse();
     std::vector<std::unique_ptr<Stmt>> parseRepl();
-
-    // Para guardar y restaurar estado
-    struct Snapshot {
-        int current;
-        bool hadError;
-        bool panicMode;
-    };
-    
-    Snapshot saveSnapshot() const {
-        return {current, hadError, panicMode};
-    }
-    
-    void restoreSnapshot(const Snapshot& snap) {
-        current = snap.current;
-        hadError = snap.hadError;
-        panicMode = snap.panicMode;
-    }
 
 private:
     const std::vector<Token>& tokens;
     int current = 0;
-    
     bool hadError = false;
     bool panicMode = false;
 
@@ -62,31 +42,27 @@ private:
     Token consume(TokenType type, const std::string& message);
     void synchronize();
     
-    // Reporte de errores
     void error(const Token& token, const std::string& message);
     void errorAtCurrent(const std::string& message);
     
-    // Parsing de declarations (top-level)
+    // Parsing de declarations
     std::unique_ptr<Stmt> declaration();
     std::unique_ptr<Stmt> statement();
     
-    // Statements específicos
+    // Statements
     std::unique_ptr<Stmt> expressionStatement();
     std::unique_ptr<Stmt> printStatement();
     std::unique_ptr<Stmt> returnStatement();
     std::unique_ptr<Stmt> blockStatement();
-    std::unique_ptr<Stmt> ifStatement();
-    std::unique_ptr<Stmt> whileStatement();
-    std::unique_ptr<Stmt> forStatement();
     
-    // Declaraciones específicas
+    // Declaraciones
     std::unique_ptr<Stmt> varDeclaration();
     std::unique_ptr<Stmt> functionDeclaration(const std::string& kind);
     std::unique_ptr<Stmt> classDeclaration();
     std::unique_ptr<Stmt> protocolDeclaration();
     std::unique_ptr<Stmt> macroDeclaration();
     
-    // Parsing de expresiones (Pratt parser)
+    // Expresiones (Pratt parser)
     std::unique_ptr<Expr> expression();
     std::unique_ptr<Expr> assignment();
     std::unique_ptr<Expr> logicalOr();
@@ -95,7 +71,7 @@ private:
     std::unique_ptr<Expr> comparison();
     std::unique_ptr<Expr> term();
     std::unique_ptr<Expr> factor();
-    std::unique_ptr<Expr> concat();      // @ y @@
+    std::unique_ptr<Expr> concat();
     std::unique_ptr<Expr> unary();
     std::unique_ptr<Expr> call();
     std::unique_ptr<Expr> primary();
@@ -107,7 +83,7 @@ private:
     std::unique_ptr<Expr> forExpression();
     std::unique_ptr<Expr> blockExpression();
     
-    // Helpers para parsing
+    // Helpers
     std::vector<std::unique_ptr<Expr>> parseArguments();
     std::unique_ptr<Expr> parseParenthesizedExpression();
 };
