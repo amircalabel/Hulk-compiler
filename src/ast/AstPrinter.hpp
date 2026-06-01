@@ -52,6 +52,7 @@ private:
     
     std::string literalToString(const std::variant<double, std::string, bool, std::nullptr_t>& value);
     void parenthesize(const std::string& name, const std::vector<std::string>& parts);
+    std::string printExpr(const Expr& expr);
 };
 
 } // namespace hulk
