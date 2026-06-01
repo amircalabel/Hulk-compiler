@@ -4,10 +4,6 @@
 
 namespace hulk {
 
-// ============================================================
-// Helpers
-// ============================================================
-
 std::string AstPrinter::literalToString(const std::variant<double, std::string, bool, std::nullptr_t>& value) {
     if (std::holds_alternative<std::nullptr_t>(value)) {
         return "nil";
@@ -36,53 +32,24 @@ void AstPrinter::parenthesize(const std::string& name, const std::vector<std::st
     output << ")";
 }
 
-void AstPrinter::indent() {
-    for (int i = 0; i < indentLevel; i++) {
-        output << "  ";
-    }
-}
-
 // ============================================================
-// Función auxiliar para imprimir expresiones sin interferir con output
-// ============================================================
-
-std::string AstPrinter::printExpr(const Expr& expr) {
-    // Guardar el estado actual del output
-    std::stringstream oldOutput;
-    oldOutput.swap(output);
-    
-    // Imprimir la expresión
-    expr.accept(*this);
-    std::string result = output.str();
-    
-    // Restaurar el output anterior
-    output.str("");
-    output.clear();
-    output << oldOutput.str();
-    
-    return result;
-}
-
-// ============================================================
-// Puntos de entrada públicos
+// Métodos públicos
 // ============================================================
 
 std::string AstPrinter::print(const Expr& expr) {
     output.str("");
-    output.clear();
-    return printExpr(expr);
+    expr.accept(*this);
+    return output.str();
 }
 
 std::string AstPrinter::print(const Stmt& stmt) {
     output.str("");
-    output.clear();
     stmt.accept(*this);
     return output.str();
 }
 
 std::string AstPrinter::print(const std::vector<std::unique_ptr<Stmt>>& statements) {
     output.str("");
-    output.clear();
     for (const auto& stmt : statements) {
         if (stmt) {
             stmt->accept(*this);
@@ -104,23 +71,22 @@ AstPrinter::visitLiteralExpr(const LiteralExpr& expr) {
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitBinaryExpr(const BinaryExpr& expr) {
-    std::string left = printExpr(*expr.left);
-    std::string right = printExpr(*expr.right);
-    output << "(" << expr.op.lexeme << " " << left << " " << right << ")";
+    std::string left = print(*expr.left);
+    std::string right = print(*expr.right);
+    parenthesize(expr.op.lexeme, {left, right});
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitUnaryExpr(const UnaryExpr& expr) {
-    std::string right = printExpr(*expr.right);
-    output << "(" << expr.op.lexeme << " " << right << ")";
+    std::string right = print(*expr.right);
+    parenthesize(expr.op.lexeme, {right});
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitGroupingExpr(const GroupingExpr& expr) {
-    std::string inner = printExpr(*expr.expression);
-    output << "(group " << inner << ")";
+    parenthesize("group", {print(*expr.expression)});
     return 0.0;
 }
 
@@ -132,90 +98,72 @@ AstPrinter::visitVariableExpr(const VariableExpr& expr) {
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitAssignExpr(const AssignExpr& expr) {
-    std::string value = printExpr(*expr.value);
-    output << "(:= " << expr.name.lexeme << " " << value << ")";
+    parenthesize(":=", {expr.name.lexeme, print(*expr.value)});
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitLetExpr(const LetExpr& expr) {
-    output << "(let (";
-    
+    std::string bindings;
     for (size_t i = 0; i < expr.bindings.size(); i++) {
-        const auto& binding = expr.bindings[i];
-        if (i > 0) output << " ";
-        output << "(" << binding.name.lexeme << " " << printExpr(*binding.initializer) << ")";
+        if (i > 0) bindings += " ";
+        bindings += "(" + expr.bindings[i].name.lexeme + " " + print(*expr.bindings[i].initializer) + ")";
     }
-    
-    output << ") " << printExpr(*expr.body) << ")";
+    parenthesize("let", {"(" + bindings + ")", print(*expr.body)});
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitIfExpr(const IfExpr& expr) {
-    output << "(if " << printExpr(*expr.condition) << " " << printExpr(*expr.thenBranch);
-    
-    for (const auto& elif : expr.elifBranches) {
-        output << " (elif " << printExpr(*elif.first) << " " << printExpr(*elif.second) << ")";
-    }
-    
+    std::vector<std::string> parts;
+    parts.push_back("if");
+    parts.push_back(print(*expr.condition));
+    parts.push_back(print(*expr.thenBranch));
     if (expr.elseBranch) {
-        output << " else " << printExpr(*expr.elseBranch);
+        parts.push_back("else");
+        parts.push_back(print(*expr.elseBranch));
     }
-    
-    output << ")";
+    parenthesize("if", parts);
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitWhileExpr(const WhileExpr& expr) {
-    output << "(while " << printExpr(*expr.condition) << " " << printExpr(*expr.body) << ")";
+    parenthesize("while", {print(*expr.condition), print(*expr.body)});
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitForExpr(const ForExpr& expr) {
-    output << "(for ";
-    
-    if (expr.initializer) {
-        output << printExpr(*expr.initializer) << " ";
-    } else {
-        output << "() ";
-    }
-    
-    if (expr.condition) {
-        output << printExpr(*expr.condition) << " ";
-    } else {
-        output << "() ";
-    }
-    
-    if (expr.increment) {
-        output << printExpr(*expr.increment) << " ";
-    } else {
-        output << "() ";
-    }
-    
-    output << printExpr(*expr.body) << ")";
+    std::vector<std::string> parts;
+    parts.push_back("for");
+    parts.push_back(expr.initializer ? print(*expr.initializer) : "()");
+    parts.push_back(expr.condition ? print(*expr.condition) : "()");
+    parts.push_back(expr.increment ? print(*expr.increment) : "()");
+    parts.push_back(print(*expr.body));
+    parenthesize("for", parts);
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitBlockExpr(const BlockExpr& expr) {
-    output << "(block";
+    std::vector<std::string> parts;
     for (const auto& e : expr.expressions) {
-        output << " " << printExpr(*e);
+        parts.push_back(print(*e));
     }
-    output << ")";
+    parenthesize("block", parts);
     return 0.0;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 AstPrinter::visitCallExpr(const CallExpr& expr) {
-    output << "(call " << printExpr(*expr.callee);
+    std::vector<std::string> parts;
+    parts.push_back("call");
+    parts.push_back(print(*expr.callee));
     for (const auto& arg : expr.arguments) {
-        output << " " << printExpr(*arg);
+        parts.push_back(print(*arg));
     }
-    output << ")";
+    parenthesize("call", parts);
     return 0.0;
 }
 
@@ -224,16 +172,16 @@ AstPrinter::visitCallExpr(const CallExpr& expr) {
 // ============================================================
 
 void AstPrinter::visitExpressionStmt(const ExpressionStmt& stmt) {
-    output << printExpr(*stmt.expression) << ";";
+    output << print(*stmt.expression) << ";";
 }
 
 void AstPrinter::visitPrintStmt(const PrintStmt& stmt) {
-    output << "(print " << printExpr(*stmt.expression) << ");";
+    output << "(print " << print(*stmt.expression) << ");";
 }
 
 void AstPrinter::visitReturnStmt(const ReturnStmt& stmt) {
     if (stmt.value) {
-        output << "(return " << printExpr(*stmt.value) << ");";
+        output << "(return " << print(*stmt.value) << ");";
     } else {
         output << "(return);";
     }
@@ -241,15 +189,9 @@ void AstPrinter::visitReturnStmt(const ReturnStmt& stmt) {
 
 void AstPrinter::visitBlockStmt(const BlockStmt& stmt) {
     output << "{";
-    indentLevel++;
     for (const auto& s : stmt.statements) {
-        output << "\n";
-        indent();
-        s->accept(*this);
+        output << " " << print(*s);
     }
-    indentLevel--;
-    output << "\n";
-    indent();
     output << "}";
 }
 
@@ -259,117 +201,42 @@ void AstPrinter::visitVarDeclStmt(const VarDeclStmt& stmt) {
         output << " : " << stmt.typeAnnotation.lexeme;
     }
     if (stmt.initializer) {
-        output << " = " << printExpr(*stmt.initializer);
+        output << " = " << print(*stmt.initializer);
     }
     output << ");";
 }
 
 void AstPrinter::visitFunctionDeclStmt(const FunctionDeclStmt& stmt) {
     output << "(function " << stmt.name.lexeme << " (";
-    
     for (size_t i = 0; i < stmt.parameters.size(); i++) {
         if (i > 0) output << ", ";
         output << stmt.parameters[i].name.lexeme;
-        if (stmt.parameters[i].typeAnnotation.type != TokenType::TOKEN_ERROR) {
-            output << " : " << stmt.parameters[i].typeAnnotation.lexeme;
-        }
     }
-    output << ")";
-    
-    if (stmt.returnTypeAnnotation.type != TokenType::TOKEN_ERROR) {
-        output << " : " << stmt.returnTypeAnnotation.lexeme;
-    }
-    
-    output << " {";
-    
-    for (const auto& bodyStmt : stmt.body) {
-        output << "\n";
-        indent();
-        bodyStmt->accept(*this);
-    }
-    
-    output << "})";
+    output << ") { ... })";
 }
 
 void AstPrinter::visitClassDeclStmt(const ClassDeclStmt& stmt) {
-    output << "(type " << stmt.name.lexeme;
-    
-    if (!stmt.typeArguments.empty()) {
-        output << "(";
-        for (size_t i = 0; i < stmt.typeArguments.size(); i++) {
-            if (i > 0) output << ", ";
-            output << stmt.typeArguments[i].lexeme;
-        }
-        output << ")";
-    }
-    
-    if (stmt.superclass.type != TokenType::TOKEN_ERROR) {
-        output << " inherits " << stmt.superclass.lexeme;
-    }
-    
-    output << " {";
-    
-    for (const auto& attr : stmt.attributes) {
-        output << "\n";
-        indent();
-        output << attr.first.lexeme;
-        if (attr.second.type != TokenType::TOKEN_ERROR) {
-            output << " : " << attr.second.lexeme;
-        }
-        output << " = ?;";
-    }
-    
-    for (const auto& method : stmt.methods) {
-        output << "\n";
-        method->accept(*this);
-    }
-    
-    output << "\n})";
+    output << "(class " << stmt.name.lexeme << " { ... })";
 }
 
 void AstPrinter::visitProtocolDeclStmt(const ProtocolDeclStmt& stmt) {
-    output << "(protocol " << stmt.name.lexeme;
-    
-    if (stmt.extends.type != TokenType::TOKEN_ERROR) {
-        output << " inherits " << stmt.extends.lexeme;
-    }
-    
-    output << " {";
-    
-    for (const auto& method : stmt.methods) {
-        output << "\n";
-        indent();
-        output << method.name.lexeme << "(";
-        for (size_t i = 0; i < method.parameters.size(); i++) {
-            if (i > 0) output << ", ";
-            output << method.parameters[i].first.lexeme;
-            if (method.parameters[i].second.type != TokenType::TOKEN_ERROR) {
-                output << " : " << method.parameters[i].second.lexeme;
-            }
-        }
-        output << ")";
-        if (method.returnType.type != TokenType::TOKEN_ERROR) {
-            output << " : " << method.returnType.lexeme;
-        }
-        output << ";";
-    }
-    
-    output << "\n})";
+    output << "(protocol " << stmt.name.lexeme << " { ... })";
 }
 
 void AstPrinter::visitMacroDeclStmt(const MacroDeclStmt& stmt) {
-    output << "(def " << stmt.name.lexeme << " (";
-    
-    for (size_t i = 0; i < stmt.parameters.size(); i++) {
-        if (i > 0) output << ", ";
-        if (stmt.parameters[i].isSymbolic) {
-            output << "@";
-        } else if (stmt.parameters[i].isPlaceholder) {
-            output << "$";
-        }
-        output << stmt.parameters[i].name.lexeme;
-    }
-    output << ") => " << printExpr(*stmt.body) << ";)";
+    output << "(macro " << stmt.name.lexeme << " ...)";
+}
+
+void AstPrinter::visitIfStmt(const IfStmt& stmt) {
+    output << "(if " << print(*stmt.condition) << " then else)";
+}
+
+void AstPrinter::visitWhileStmt(const WhileStmt& stmt) {
+    output << "(while " << print(*stmt.condition) << " do)";
+}
+
+void AstPrinter::visitForStmt(const ForStmt& stmt) {
+    output << "(for ...)";
 }
 
 } // namespace hulk

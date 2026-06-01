@@ -1,6 +1,8 @@
 // src/ast/Stmt.cpp
 #include "Stmt.hpp"
 
+namespace hulk {
+
 // ============================================================
 // ExpressionStmt
 // ============================================================
@@ -63,6 +65,7 @@ FunctionDeclStmt::FunctionDeclStmt(Token name, std::vector<Parameter> parameters
 void FunctionDeclStmt::accept(StmtVisitor& visitor) const {
     visitor.visitFunctionDeclStmt(*this);
 }
+
 // ============================================================
 // IfStmt
 // ============================================================
@@ -96,6 +99,7 @@ ForStmt::ForStmt(std::unique_ptr<Stmt> initializer, std::unique_ptr<Expr> condit
 void ForStmt::accept(StmtVisitor& visitor) const {
     visitor.visitForStmt(*this);
 }
+
 // ============================================================
 // ClassDeclStmt
 // ============================================================
@@ -131,4 +135,6 @@ MacroDeclStmt::MacroDeclStmt(Token name, std::vector<Parameter> parameters,
 
 void MacroDeclStmt::accept(StmtVisitor& visitor) const {
     visitor.visitMacroDeclStmt(*this);
-}// namespace hulk
+}
+
+} // namespace hulk

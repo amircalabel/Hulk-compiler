@@ -23,65 +23,60 @@ public:
 };
 
 // ============================================================
-// Expression Statement: expression;
+// Expression Statement
 // ============================================================
 class ExpressionStmt : public Stmt {
 public:
     std::unique_ptr<Expr> expression;
-
     explicit ExpressionStmt(std::unique_ptr<Expr> expression);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Print Statement: print expression;
+// Print Statement
 // ============================================================
 class PrintStmt : public Stmt {
 public:
     std::unique_ptr<Expr> expression;
-
     explicit PrintStmt(std::unique_ptr<Expr> expression);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Return Statement: return expression? ;
+// Return Statement
 // ============================================================
 class ReturnStmt : public Stmt {
 public:
     Token keyword;
     std::unique_ptr<Expr> value;
-
     ReturnStmt(Token keyword, std::unique_ptr<Expr> value);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Block Statement: { declaration* }
+// Block Statement
 // ============================================================
 class BlockStmt : public Stmt {
 public:
     std::vector<std::unique_ptr<Stmt>> statements;
-
     explicit BlockStmt(std::vector<std::unique_ptr<Stmt>> statements);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Variable Declaration: var name = expression? ;
+// Variable Declaration
 // ============================================================
 class VarDeclStmt : public Stmt {
 public:
     Token name;
     Token typeAnnotation;
     std::unique_ptr<Expr> initializer;
-
     VarDeclStmt(Token name, Token typeAnnotation, std::unique_ptr<Expr> initializer);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Function Declaration: function name(params) { body }
+// Function Declaration
 // ============================================================
 class FunctionDeclStmt : public Stmt {
 public:
@@ -89,45 +84,41 @@ public:
         Token name;
         Token typeAnnotation;
     };
-    
     Token name;
     std::vector<Parameter> parameters;
     Token returnTypeAnnotation;
     std::vector<std::unique_ptr<Stmt>> body;
-
     FunctionDeclStmt(Token name, std::vector<Parameter> parameters,
                      Token returnTypeAnnotation, std::vector<std::unique_ptr<Stmt>> body);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// IF STATEMENT: if (condition) thenBranch else elseBranch
+// If Statement
 // ============================================================
 class IfStmt : public Stmt {
 public:
     std::unique_ptr<Expr> condition;
     std::unique_ptr<Stmt> thenBranch;
     std::unique_ptr<Stmt> elseBranch;
-
     IfStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> thenBranch,
            std::unique_ptr<Stmt> elseBranch);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// WHILE STATEMENT: while (condition) body
+// While Statement
 // ============================================================
 class WhileStmt : public Stmt {
 public:
     std::unique_ptr<Expr> condition;
     std::unique_ptr<Stmt> body;
-
     WhileStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> body);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// FOR STATEMENT: for (init; condition; increment) body
+// For Statement
 // ============================================================
 class ForStmt : public Stmt {
 public:
@@ -135,14 +126,13 @@ public:
     std::unique_ptr<Expr> condition;
     std::unique_ptr<Expr> increment;
     std::unique_ptr<Stmt> body;
-
     ForStmt(std::unique_ptr<Stmt> initializer, std::unique_ptr<Expr> condition,
             std::unique_ptr<Expr> increment, std::unique_ptr<Stmt> body);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Class Declaration: type name (args?) { attributes? methods? }
+// Class Declaration
 // ============================================================
 class ClassDeclStmt : public Stmt {
 public:
@@ -152,7 +142,6 @@ public:
     std::vector<std::unique_ptr<FunctionDeclStmt>> methods;
     Token superclass;
     std::vector<std::unique_ptr<Expr>> superclassArguments;
-
     ClassDeclStmt(Token name, std::vector<Token> typeArguments,
                   std::vector<std::pair<Token, Token>> attributes,
                   std::vector<std::unique_ptr<FunctionDeclStmt>> methods,
@@ -161,7 +150,7 @@ public:
 };
 
 // ============================================================
-// Protocol Declaration: protocol name { methodSignatures }
+// Protocol Declaration
 // ============================================================
 class ProtocolDeclStmt : public Stmt {
 public:
@@ -170,17 +159,15 @@ public:
         std::vector<std::pair<Token, Token>> parameters;
         Token returnType;
     };
-    
     Token name;
     std::vector<MethodSignature> methods;
     Token extends;
-
     ProtocolDeclStmt(Token name, std::vector<MethodSignature> methods, Token extends);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// Macro Declaration: def name(args) => expr;
+// Macro Declaration
 // ============================================================
 class MacroDeclStmt : public Stmt {
 public:
@@ -189,24 +176,21 @@ public:
         bool isSymbolic;
         bool isPlaceholder;
     };
-    
     Token name;
     std::vector<Parameter> parameters;
     std::unique_ptr<Expr> body;
     bool hasPatternMatching;
-
     MacroDeclStmt(Token name, std::vector<Parameter> parameters,
                   std::unique_ptr<Expr> body, bool hasPatternMatching);
     void accept(StmtVisitor& visitor) const override;
 };
 
 // ============================================================
-// StmtVisitor - Interface for Visitor pattern
+// StmtVisitor Interface
 // ============================================================
 class StmtVisitor {
 public:
     virtual ~StmtVisitor() = default;
-
     virtual void visitExpressionStmt(const ExpressionStmt& stmt) = 0;
     virtual void visitPrintStmt(const PrintStmt& stmt) = 0;
     virtual void visitReturnStmt(const ReturnStmt& stmt) = 0;
