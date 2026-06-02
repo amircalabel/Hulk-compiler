@@ -110,12 +110,13 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse() {
 std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
+    
     try {
         // Caso especial: let ... in print ...
         if (check(TokenType::TOKEN_LET)) {
             // Guardar posición actual
             int letStart = current;
-            
+            advance();
             try {
                 // Intentar parsear como let expresión normalmente
                 auto expr = letExpression();
@@ -499,6 +500,9 @@ std::unique_ptr<Expr> Parser::call() {
 }
 
 std::unique_ptr<Expr> Parser::primary() {
+    if (match(TokenType::TOKEN_LET)) {
+        return letExpression();
+    }
     if (match(TokenType::TOKEN_TRUE)) return std::make_unique<LiteralExpr>(true);
     if (match(TokenType::TOKEN_FALSE)) return std::make_unique<LiteralExpr>(false);
     if (match(TokenType::TOKEN_NIL)) return std::make_unique<LiteralExpr>(nullptr);
@@ -509,9 +513,6 @@ std::unique_ptr<Expr> Parser::primary() {
     if (match(TokenType::TOKEN_STRING)) {
         std::string value = std::get<std::string>(previous().literal);
         return std::make_unique<LiteralExpr>(value);
-    }
-    if (match(TokenType::TOKEN_LET)) {
-        return letExpression();
     }
     if (match(TokenType::TOKEN_IDENTIFIER)) {
         return std::make_unique<VariableExpr>(previous());
@@ -533,7 +534,9 @@ std::unique_ptr<Expr> Parser::primary() {
 std::unique_ptr<Expr> Parser::letExpression() {
     std::vector<LetExpr::Binding> bindings;
     do {
+        std::cout << "DEBUG: Entrando a letExpression, token actual: " << peek().toString() << std::endl;
         Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
+        std::cout << "DEBUG: Nombre de variable: " << name.lexeme << std::endl;
         Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
