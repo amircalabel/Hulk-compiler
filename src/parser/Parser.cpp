@@ -111,69 +111,49 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseRepl() {
     std::vector<std::unique_ptr<Stmt>> statements;
     
     try {
+        // ============================================================
+        // NUEVO: Intentar como expresión simple (42, 1+2, etc.)
+        // ============================================================
+        int savedCurrent = current;
+        bool savedHadError = hadError;
+        bool savedPanicMode = panicMode;
+        
+        try {
+            auto expr = expression();
+            if (expr && isAtEnd()) {
+                auto printStmt = std::make_unique<PrintStmt>(std::move(expr));
+                statements.push_back(std::move(printStmt));
+                return statements;
+            }
+        } catch (const ParseError&) {
+            current = savedCurrent;
+            hadError = savedHadError;
+            panicMode = savedPanicMode;
+        }
+        
+        // ============================================================
         // Caso especial: let ... in print ...
+        // ============================================================
         if (check(TokenType::TOKEN_LET)) {
-            // Guardar posición actual
             int letStart = current;
             
             try {
-                // Consumir LET
-                advance();
-                
-                // Parsear bindings manualmente
-                std::vector<LetExpr::Binding> bindings;
-                
-                do {
-                    Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
-                    Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
-                    if (match(TokenType::TOKEN_COLON)) {
-                        typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
-                    }
-                    consume(TokenType::TOKEN_EQUAL, "Expect '=' after variable name.");
-                    auto initializer = expression();
-                    bindings.push_back({name, typeAnnotation, std::move(initializer)});
-                } while (match(TokenType::TOKEN_COMMA));
-                
-                // Verificar IN
-                consume(TokenType::TOKEN_IN, "Expect 'in' after let bindings.");
-                
-                // Verificar si después de IN viene PRINT
-                if (check(TokenType::TOKEN_PRINT)) {
-                    // Consumir PRINT
-                    advance();
-                    auto printExpr = expression();
-                    
-                    // Consumir punto y coma opcional
-                    if (check(TokenType::TOKEN_SEMICOLON)) {
-                        advance();
-                    }
-                    
-                    // Crear un PrintStmt
-                    auto printStmt = std::make_unique<PrintStmt>(std::move(printExpr));
-                    statements.push_back(std::move(printStmt));
-                    
-                    // Crear un LetExpr como expresión aparte (opcional)
-                    // Para simplificar, no mostramos el let
-                    
-                    return statements;
-                } else {
-                    // No es print, parsear como expresión normal
-                    auto body = expression();
-                    auto letExpr = std::make_unique<LetExpr>(std::move(bindings), std::move(body));
-                    auto printStmt = std::make_unique<PrintStmt>(std::move(letExpr));
+                auto expr = letExpression();
+                if (expr && isAtEnd()) {
+                    auto printStmt = std::make_unique<PrintStmt>(std::move(expr));
                     statements.push_back(std::move(printStmt));
                     return statements;
                 }
-                
             } catch (const ParseError&) {
-                // Restaurar posición
                 current = letStart;
                 hadError = false;
                 panicMode = false;
             }
         }
         
+        // ============================================================
         // Parsear normalmente
+        // ============================================================
         while (!isAtEnd()) {
             auto stmt = declaration();
             if (stmt) {
@@ -573,9 +553,7 @@ std::unique_ptr<Expr> Parser::primary() {
 std::unique_ptr<Expr> Parser::letExpression() {
     std::vector<LetExpr::Binding> bindings;
     do {
-        std::cout << "DEBUG: Entrando a letExpression, token actual: " << peek().toString() << std::endl;
         Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
-        std::cout << "DEBUG: Nombre de variable: " << name.lexeme << std::endl;
         Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
