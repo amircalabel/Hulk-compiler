@@ -13,6 +13,7 @@
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
 #include "ast/AstPrinter.hpp"
+#include "interpreter/Interpreter.hpp"
 
 using namespace hulk;
 
@@ -48,6 +49,9 @@ void error(const Token& token, const std::string& message) {
 // ============================================================
 
 void run(const std::string& source) {
+    /*
+    //========================================================
+    // Seccion de prueba para el AStPrinter y parser 
     // FASE 1: SCANNER
     Scanner scanner(source);
     std::vector<Token> tokens = scanner.scanTokens();
@@ -75,6 +79,23 @@ void run(const std::string& source) {
     // FASE 3: IMPRIMIR AST
     AstPrinter printer;
     std::cout << printer.print(statements) << std::endl;
+
+    //==================================================== */
+     Scanner scanner(source);
+    auto tokens = scanner.scanTokens();
+    if (hadError) { hadError = false; return; }
+    
+    Parser parser(tokens);
+    auto statements = parser.parseRepl();
+    if (hadError) { hadError = false; return; }
+    
+    // Interpreter
+    Interpreter interpreter;
+    try {
+        interpreter.interpret(statements);
+    } catch (const std::exception& e) {
+        std::cerr << "Runtime error: " << e.what() << std::endl;
+    }
     
     hadError = false;
 }
