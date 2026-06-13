@@ -11,6 +11,7 @@ class Scanner {
 public:
     Scanner(const std::string& source);
     std::vector<Token> scanTokens();
+    void lexicalError(const std::string& message);
 
 private:
     const std::string& source;
@@ -18,6 +19,7 @@ private:
     int start = 0;
     int current = 0;
     int line = 1;
+    int getColumn() const;
 
     // Mapa de keywords (inicializado estáticamente)
     static std::unordered_map<std::string, TokenType> keywords;
