@@ -14,7 +14,7 @@ namespace hulk {
 
 class AstPrinter : public ExprVisitor, public StmtVisitor {
 public:
-    // Métodos públicos de impresión
+    // Métodos públicos
     std::string print(const Expr& expr);
     std::string print(const Stmt& stmt);
     std::string print(const std::vector<std::unique_ptr<Stmt>>& statements);
@@ -43,17 +43,16 @@ public:
     void visitClassDeclStmt(const ClassDeclStmt& stmt) override;
     void visitProtocolDeclStmt(const ProtocolDeclStmt& stmt) override;
     void visitMacroDeclStmt(const MacroDeclStmt& stmt) override;
+    void visitIfStmt(const IfStmt& stmt) override;
+    void visitWhileStmt(const WhileStmt& stmt) override;
+    void visitForStmt(const ForStmt& stmt) override;
 
 private:
     std::stringstream output;
-    int indentLevel = 0;
     
-    void indent();
-    void parenthesize(const std::string& name, const std::vector<std::string>& parts);
     std::string literalToString(const std::variant<double, std::string, bool, std::nullptr_t>& value);
-    
-    // Función auxiliar para imprimir expresiones sin afectar el output principal
-    std::string printExpr(const Expr& expr);  // ← AGREGAR ESTA LÍNEA
+    void parenthesize(const std::string& name, const std::vector<std::string>& parts);
+    std::string printExpr(const Expr& expr);
 };
 
 } // namespace hulk

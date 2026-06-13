@@ -1,7 +1,7 @@
 // src/interpreter/Interpreter.cpp
 #include "Interpreter.hpp"
-#include <iostream>
 #include <cmath>
+#include <sstream>
 
 namespace hulk {
 
@@ -23,103 +23,51 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements
                 execute(*stmt);
             }
         }
-    } catch (const ReturnException& e) {
-        runtimeError(Token{}, "Can't return from top-level code.");
+    } catch (const std::exception& e) {
+        runtimeError(e.what());
     }
-}
-
-void Interpreter::executeBlock(const std::vector<std::unique_ptr<Stmt>>& statements, 
-                                std::shared_ptr<Environment> newEnvironment) {
-    std::shared_ptr<Environment> previous = environment;
-    try {
-        environment = newEnvironment;
-        for (const auto& stmt : statements) {
-            if (stmt) {
-                execute(*stmt);
-            }
-        }
-    } catch (...) {
-        environment = previous;
-        throw;
-    }
-    environment = previous;
 }
 
 void Interpreter::resolve(Expr& expr, int depth) {
     locals[&expr] = depth;
 }
 
-std::optional<int> Interpreter::getResolvedDepth(const Expr& expr) const {
-    auto it = locals.find(&expr);
-    if (it != locals.end()) {
-        return it->second;
-    }
-    return std::nullopt;
-}
-
-backend::Value Interpreter::evaluate(Expr& expr) {
-    auto result = expr.accept(*this);
-    return variantToValue(result);
-}
-
 void Interpreter::execute(Stmt& stmt) {
     stmt.accept(*this);
 }
 
-backend::Value Interpreter::lookUpVariable(const Token& name, const Expr& expr) {
-    auto distance = getResolvedDepth(expr);
-    if (distance.has_value()) {
-        return environment->getAt(distance.value(), name.lexeme);
-    } else {
-        return globals->get(name);
-    }
+std::variant<double, std::string, bool, std::nullptr_t> Interpreter::evaluate(Expr& expr) {
+    return expr.accept(*this);
 }
 
-bool Interpreter::isTruthy(const backend::Value& value) const {
-    if (value.isNil()) return false;
-    if (value.isBool()) return value.asBool();
+bool Interpreter::isTruthy(const std::variant<double, std::string, bool, std::nullptr_t>& value) const {
+    if (std::holds_alternative<std::nullptr_t>(value)) return false;
+    if (std::holds_alternative<bool>(value)) return std::get<bool>(value);
     return true;
 }
 
-bool Interpreter::isEqual(const backend::Value& a, const backend::Value& b) const {
-    if (a.isNil() && b.isNil()) return true;
-    if (a.isNil()) return false;
-    return a == b;
+bool Interpreter::isEqual(const std::variant<double, std::string, bool, std::nullptr_t>& a,
+                          const std::variant<double, std::string, bool, std::nullptr_t>& b) const {
+    if (std::holds_alternative<std::nullptr_t>(a) && std::holds_alternative<std::nullptr_t>(b)) return true;
+    if (std::holds_alternative<bool>(a) && std::holds_alternative<bool>(b)) return std::get<bool>(a) == std::get<bool>(b);
+    if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b)) return std::get<double>(a) == std::get<double>(b);
+    if (std::holds_alternative<std::string>(a) && std::holds_alternative<std::string>(b)) return std::get<std::string>(a) == std::get<std::string>(b);
+    return false;
 }
 
-std::string Interpreter::stringify(const backend::Value& value) const {
-    if (value.isNil()) return "nil";
-    if (value.isBool()) return value.asBool() ? "true" : "false";
-    if (value.isNumber()) {
-        double num = value.asNumber();
-        if (num == static_cast<int64_t>(num)) {
-            return std::to_string(static_cast<int64_t>(num));
-        }
+std::string Interpreter::stringify(const std::variant<double, std::string, bool, std::nullptr_t>& value) const {
+    if (std::holds_alternative<std::nullptr_t>(value)) return "nil";
+    if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
+    if (std::holds_alternative<double>(value)) {
+        double num = std::get<double>(value);
+        if (num == static_cast<int>(num)) return std::to_string(static_cast<int>(num));
         return std::to_string(num);
     }
-    if (value.isObj()) {
-        backend::Obj* obj = value.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return value.toString();
+    if (std::holds_alternative<std::string>(value)) return std::get<std::string>(value);
+    return "unknown";
 }
 
-backend::Value Interpreter::variantToValue(const std::variant<double, std::string, bool, std::nullptr_t>& var) {
-    if (std::holds_alternative<double>(var)) {
-        return backend::Value::makeNumber(std::get<double>(var));
-    } else if (std::holds_alternative<std::string>(var)) {
-        return backend::Value::makeObj(new backend::ObjString(std::get<std::string>(var)));
-    } else if (std::holds_alternative<bool>(var)) {
-        return backend::Value::makeBool(std::get<bool>(var));
-    } else {
-        return backend::Value::makeNil();
-    }
-}
-
-void Interpreter::runtimeError(const Token& token, const std::string& message) {
-    std::cerr << "[line " << token.line << "] Runtime Error: " << message << std::endl;
+void Interpreter::runtimeError(const std::string& message) {
     throw std::runtime_error(message);
 }
 
@@ -129,7 +77,7 @@ void Interpreter::runtimeError(const Token& token, const std::string& message) {
 
 void Interpreter::visitExpressionStmt(const ExpressionStmt& stmt) {
     if (stmt.expression) {
-        lastValue = evaluate(*stmt.expression);
+        evaluate(*stmt.expression);
     }
 }
 
@@ -141,20 +89,26 @@ void Interpreter::visitPrintStmt(const PrintStmt& stmt) {
 }
 
 void Interpreter::visitReturnStmt(const ReturnStmt& stmt) {
-    backend::Value value = backend::Value::makeNil();
     if (stmt.value) {
-        value = evaluate(*stmt.value);
+        evaluate(*stmt.value);
     }
-    throw ReturnException(value);
 }
 
 void Interpreter::visitBlockStmt(const BlockStmt& stmt) {
-    auto newEnvironment = std::make_shared<Environment>(environment);
-    executeBlock(stmt.statements, newEnvironment);
+    auto previous = environment;
+    environment = std::make_shared<Environment>(environment);
+    
+    for (const auto& s : stmt.statements) {
+        if (s) {
+            execute(*s);
+        }
+    }
+    
+    environment = previous;
 }
 
 void Interpreter::visitVarDeclStmt(const VarDeclStmt& stmt) {
-    backend::Value value = backend::Value::makeNil();
+    std::variant<double, std::string, bool, std::nullptr_t> value = nullptr;
     if (stmt.initializer) {
         value = evaluate(*stmt.initializer);
     }
@@ -162,23 +116,48 @@ void Interpreter::visitVarDeclStmt(const VarDeclStmt& stmt) {
 }
 
 void Interpreter::visitFunctionDeclStmt(const FunctionDeclStmt& stmt) {
-    environment->define(stmt.name.lexeme, backend::Value::makeNil());
+    // Por ahora, solo almacenamos que la función existe
+    environment->define(stmt.name.lexeme, nullptr);
 }
 
 void Interpreter::visitClassDeclStmt(const ClassDeclStmt& stmt) {
-    environment->define(stmt.name.lexeme, backend::Value::makeNil());
+    environment->define(stmt.name.lexeme, nullptr);
 }
 
 void Interpreter::visitProtocolDeclStmt(const ProtocolDeclStmt& stmt) {
-    environment->define(stmt.name.lexeme, backend::Value::makeNil());
+    environment->define(stmt.name.lexeme, nullptr);
 }
 
 void Interpreter::visitMacroDeclStmt(const MacroDeclStmt& stmt) {
-    environment->define(stmt.name.lexeme, backend::Value::makeNil());
+    environment->define(stmt.name.lexeme, nullptr);
+}
+
+void Interpreter::visitIfStmt(const IfStmt& stmt) {
+    auto condition = evaluate(*stmt.condition);
+    if (isTruthy(condition)) {
+        execute(*stmt.thenBranch);
+    } else if (stmt.elseBranch) {
+        execute(*stmt.elseBranch);
+    }
+}
+
+void Interpreter::visitWhileStmt(const WhileStmt& stmt) {
+    auto condition = evaluate(*stmt.condition);
+    while (isTruthy(condition)) {
+        execute(*stmt.body);
+        condition = evaluate(*stmt.condition);
+    }
+}
+
+void Interpreter::visitForStmt(const ForStmt& stmt) {
+    // Por ahora, simplificado
+    if (stmt.body) {
+        execute(*stmt.body);
+    }
 }
 
 // ============================================================
-// Expressions - Versiones CORRECTAS (sin .accept() en Value)
+// Expressions
 // ============================================================
 
 std::variant<double, std::string, bool, std::nullptr_t> 
@@ -193,46 +172,36 @@ Interpreter::visitBinaryExpr(const BinaryExpr& expr) {
     
     switch (expr.op.type) {
         case TokenType::TOKEN_PLUS:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() + right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) + std::get<double>(right);
             }
-            return stringify(left) + stringify(right);
+            if (std::holds_alternative<std::string>(left) && std::holds_alternative<std::string>(right)) {
+                return std::get<std::string>(left) + std::get<std::string>(right);
+            }
+            runtimeError("Operands must be numbers or strings");
+            return nullptr;
             
         case TokenType::TOKEN_MINUS:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() - right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) - std::get<double>(right);
             }
-            runtimeError(expr.op, "Operands must be numbers.");
+            runtimeError("Operands must be numbers");
             return nullptr;
             
         case TokenType::TOKEN_STAR:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() * right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) * std::get<double>(right);
             }
-            runtimeError(expr.op, "Operands must be numbers.");
+            runtimeError("Operands must be numbers");
             return nullptr;
             
         case TokenType::TOKEN_SLASH:
-            if (left.isNumber() && right.isNumber()) {
-                if (right.asNumber() == 0) {
-                    runtimeError(expr.op, "Division by zero.");
-                    return nullptr;
-                }
-                return left.asNumber() / right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                if (std::get<double>(right) == 0) runtimeError("Division by zero");
+                return std::get<double>(left) / std::get<double>(right);
             }
-            runtimeError(expr.op, "Operands must be numbers.");
+            runtimeError("Operands must be numbers");
             return nullptr;
-            
-        case TokenType::TOKEN_CARET:
-            if (left.isNumber() && right.isNumber()) {
-                return std::pow(left.asNumber(), right.asNumber());
-            }
-            runtimeError(expr.op, "Operands must be numbers.");
-            return nullptr;
-            
-        case TokenType::TOKEN_AT:
-        case TokenType::TOKEN_AT_AT:
-            return stringify(left) + stringify(right);
             
         case TokenType::TOKEN_EQUAL_EQUAL:
             return isEqual(left, right);
@@ -241,35 +210,21 @@ Interpreter::visitBinaryExpr(const BinaryExpr& expr) {
             return !isEqual(left, right);
             
         case TokenType::TOKEN_GREATER:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() > right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) > std::get<double>(right);
             }
-            runtimeError(expr.op, "Operands must be numbers.");
-            return nullptr;
-            
-        case TokenType::TOKEN_GREATER_EQUAL:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() >= right.asNumber();
-            }
-            runtimeError(expr.op, "Operands must be numbers.");
+            runtimeError("Operands must be numbers");
             return nullptr;
             
         case TokenType::TOKEN_LESS:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() < right.asNumber();
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) < std::get<double>(right);
             }
-            runtimeError(expr.op, "Operands must be numbers.");
-            return nullptr;
-            
-        case TokenType::TOKEN_LESS_EQUAL:
-            if (left.isNumber() && right.isNumber()) {
-                return left.asNumber() <= right.asNumber();
-            }
-            runtimeError(expr.op, "Operands must be numbers.");
+            runtimeError("Operands must be numbers");
             return nullptr;
             
         default:
-            runtimeError(expr.op, "Unknown operator.");
+            runtimeError("Unknown operator");
             return nullptr;
     }
 }
@@ -280,71 +235,35 @@ Interpreter::visitUnaryExpr(const UnaryExpr& expr) {
     
     switch (expr.op.type) {
         case TokenType::TOKEN_MINUS:
-            if (right.isNumber()) {
-                return -right.asNumber();
+            if (std::holds_alternative<double>(right)) {
+                return -std::get<double>(right);
             }
-            runtimeError(expr.op, "Operand must be a number.");
+            runtimeError("Operand must be a number");
             return nullptr;
         case TokenType::TOKEN_BANG:
             return !isTruthy(right);
         default:
-            runtimeError(expr.op, "Unknown operator.");
+            runtimeError("Unknown operator");
             return nullptr;
     }
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitGroupingExpr(const GroupingExpr& expr) {
-    auto value = evaluate(*expr.expression);
-    // Convertir Value a variant directamente
-    if (value.isNumber()) return value.asNumber();
-    if (value.isBool()) return value.asBool();
-    if (value.isNil()) return nullptr;
-    if (value.isObj()) {
-        auto* obj = value.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return nullptr;
+    return evaluate(*expr.expression);
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitVariableExpr(const VariableExpr& expr) {
-    auto value = lookUpVariable(expr.name, expr);
-    if (value.isNumber()) return value.asNumber();
-    if (value.isBool()) return value.asBool();
-    if (value.isNil()) return nullptr;
-    if (value.isObj()) {
-        auto* obj = value.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return nullptr;
+    auto value = environment->get(expr.name.lexeme);
+    return value;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitAssignExpr(const AssignExpr& expr) {
     auto value = evaluate(*expr.value);
-    
-    auto distance = getResolvedDepth(expr);
-    if (distance.has_value()) {
-        environment->assignAt(distance.value(), expr.name, value);
-    } else {
-        globals->assign(expr.name, value);
-    }
-    
-    if (value.isNumber()) return value.asNumber();
-    if (value.isBool()) return value.asBool();
-    if (value.isNil()) return nullptr;
-    if (value.isObj()) {
-        auto* obj = value.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return nullptr;
+    environment->assign(expr.name.lexeme, value);
+    return value;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
@@ -353,89 +272,34 @@ Interpreter::visitLetExpr(const LetExpr& expr) {
     environment = std::make_shared<Environment>(environment);
     
     for (const auto& binding : expr.bindings) {
-        backend::Value value = backend::Value::makeNil();
-        if (binding.initializer) {
-            value = evaluate(*binding.initializer);
-        }
+        auto value = evaluate(*binding.initializer);
         environment->define(binding.name.lexeme, value);
     }
     
     auto result = evaluate(*expr.body);
     environment = previous;
-    
-    if (result.isNumber()) return result.asNumber();
-    if (result.isBool()) return result.asBool();
-    if (result.isNil()) return nullptr;
-    if (result.isObj()) {
-        auto* obj = result.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return nullptr;
+    return result;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitIfExpr(const IfExpr& expr) {
     auto condition = evaluate(*expr.condition);
-    
     if (isTruthy(condition)) {
-        auto result = evaluate(*expr.thenBranch);
-        if (result.isNumber()) return result.asNumber();
-        if (result.isBool()) return result.asBool();
-        if (result.isNil()) return nullptr;
-        if (result.isObj()) {
-            auto* obj = result.asObj();
-            if (obj->type == backend::ObjType::OBJ_STRING) {
-                return static_cast<backend::ObjString*>(obj)->chars;
-            }
-        }
-        return nullptr;
+        return evaluate(*expr.thenBranch);
     }
-    
-    for (const auto& elif : expr.elifBranches) {
-        auto elifCond = evaluate(*elif.first);
-        if (isTruthy(elifCond)) {
-            auto result = evaluate(*elif.second);
-            if (result.isNumber()) return result.asNumber();
-            if (result.isBool()) return result.asBool();
-            if (result.isNil()) return nullptr;
-            if (result.isObj()) {
-                auto* obj = result.asObj();
-                if (obj->type == backend::ObjType::OBJ_STRING) {
-                    return static_cast<backend::ObjString*>(obj)->chars;
-                }
-            }
-            return nullptr;
-        }
-    }
-    
     if (expr.elseBranch) {
-        auto result = evaluate(*expr.elseBranch);
-        if (result.isNumber()) return result.asNumber();
-        if (result.isBool()) return result.asBool();
-        if (result.isNil()) return nullptr;
-        if (result.isObj()) {
-            auto* obj = result.asObj();
-            if (obj->type == backend::ObjType::OBJ_STRING) {
-                return static_cast<backend::ObjString*>(obj)->chars;
-            }
-        }
-        return nullptr;
+        return evaluate(*expr.elseBranch);
     }
-    
     return nullptr;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitWhileExpr(const WhileExpr& expr) {
     auto condition = evaluate(*expr.condition);
-    
     while (isTruthy(condition)) {
         evaluate(*expr.body);
         condition = evaluate(*expr.condition);
     }
-    
     return nullptr;
 }
 
@@ -445,22 +309,19 @@ Interpreter::visitForExpr(const ForExpr& expr) {
         evaluate(*expr.initializer);
     }
     
-    auto condition = expr.condition ? evaluate(*expr.condition) : backend::Value::makeBool(true);
+    auto condition = expr.condition ? evaluate(*expr.condition) : true;
     
     while (isTruthy(condition)) {
         if (expr.body) {
             evaluate(*expr.body);
         }
-        
         if (expr.increment) {
             evaluate(*expr.increment);
         }
-        
         if (expr.condition) {
             condition = evaluate(*expr.condition);
         }
     }
-    
     return nullptr;
 }
 
@@ -469,33 +330,22 @@ Interpreter::visitBlockExpr(const BlockExpr& expr) {
     auto previous = environment;
     environment = std::make_shared<Environment>(environment);
     
-    backend::Value result = backend::Value::makeNil();
+    std::variant<double, std::string, bool, std::nullptr_t> result = nullptr;
     for (const auto& e : expr.expressions) {
         result = evaluate(*e);
     }
     
     environment = previous;
-    
-    if (result.isNumber()) return result.asNumber();
-    if (result.isBool()) return result.asBool();
-    if (result.isNil()) return nullptr;
-    if (result.isObj()) {
-        auto* obj = result.asObj();
-        if (obj->type == backend::ObjType::OBJ_STRING) {
-            return static_cast<backend::ObjString*>(obj)->chars;
-        }
-    }
-    return nullptr;
+    return result;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitCallExpr(const CallExpr& expr) {
+    // Por ahora, las llamadas a funciones retornan nil
     evaluate(*expr.callee);
-    
     for (const auto& arg : expr.arguments) {
         evaluate(*arg);
     }
-    
     return nullptr;
 }
 
@@ -506,12 +356,12 @@ Interpreter::visitCallExpr(const CallExpr& expr) {
 Environment::Environment(std::shared_ptr<Environment> enclosing)
     : enclosing(std::move(enclosing)) {}
 
-void Environment::define(const std::string& name, const backend::Value& value) {
+void Environment::define(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value) {
     values[name] = value;
 }
 
-backend::Value Environment::get(const Token& name) const {
-    auto it = values.find(name.lexeme);
+std::variant<double, std::string, bool, std::nullptr_t> Environment::get(const std::string& name) const {
+    auto it = values.find(name);
     if (it != values.end()) {
         return it->second;
     }
@@ -520,11 +370,11 @@ backend::Value Environment::get(const Token& name) const {
         return enclosing->get(name);
     }
     
-    return backend::Value::makeNil();
+    return nullptr;
 }
 
-void Environment::assign(const Token& name, const backend::Value& value) {
-    auto it = values.find(name.lexeme);
+void Environment::assign(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value) {
+    auto it = values.find(name);
     if (it != values.end()) {
         it->second = value;
         return;
@@ -534,14 +384,8 @@ void Environment::assign(const Token& name, const backend::Value& value) {
         enclosing->assign(name, value);
         return;
     }
-}
-
-backend::Value Environment::getAt(int distance, const std::string& name) const {
-    return ancestor(distance)->values.at(name);
-}
-
-void Environment::assignAt(int distance, const Token& name, const backend::Value& value) {
-    ancestor(distance)->values[name.lexeme] = value;
+    
+    throw std::runtime_error("Undefined variable '" + name + "'");
 }
 
 std::shared_ptr<Environment> Environment::ancestor(int distance) const {
@@ -550,6 +394,14 @@ std::shared_ptr<Environment> Environment::ancestor(int distance) const {
         env = env->enclosing;
     }
     return env;
+}
+
+std::variant<double, std::string, bool, std::nullptr_t> Environment::getAt(int distance, const std::string& name) const {
+    return ancestor(distance)->values.at(name);
+}
+
+void Environment::assignAt(int distance, const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value) {
+    ancestor(distance)->values[name] = value;
 }
 
 } // namespace hulk

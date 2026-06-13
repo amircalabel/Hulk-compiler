@@ -3,6 +3,9 @@
 #include <cctype>
 #include <iostream>
 
+// Forward declaration de la función global (definida en main.cpp)
+extern void lexicalError(int line, int col, const std::string& message);
+
 // Inicialización estática de keywords (HULK específico)
 std::unordered_map<std::string, TokenType> Scanner::keywords = {
     // Palabras clave de HULK según secciones A.2, A.3, A.4, A.5, A.6, A.7, A.10, A.14
@@ -31,6 +34,22 @@ std::unordered_map<std::string, TokenType> Scanner::keywords = {
 };
 
 Scanner::Scanner(const std::string& source) : source(source) {}
+
+// Obtener columna
+int Scanner::getColumn() const {
+    // Encontrar el inicio de la línea actual
+    int col = 1;
+    for (int i = current - 1; i >= 0; i--) {
+        if (source[i] == '\n') break;
+        col++;
+    }
+    return col;
+}
+
+// Reportar error lexico
+void Scanner::lexicalError(const std::string& message) {
+    ::lexicalError(line, getColumn(), message);
+}
 
 std::vector<Token> Scanner::scanTokens() {
     while (!isAtEnd()) {
@@ -149,7 +168,7 @@ void Scanner::scanToken() {
                 identifier();
             } else {
                 // Caracter inesperado
-                std::cerr << "Unexpected character: " << c << " at line " << line << std::endl;
+                lexicalError("unexpected character '" + std::string(1, c) + "'");
                 addToken(TokenType::TOKEN_ERROR);
             }
             break;
@@ -163,7 +182,8 @@ void Scanner::string() {
     }
 
     if (isAtEnd()) {
-        std::cerr << "Unterminated string at line " << line << std::endl;
+        // String sin cerrar - REPORTAR ERROR LÉXICO
+        lexicalError("unterminated string");
         addToken(TokenType::TOKEN_ERROR);
         return;
     }
