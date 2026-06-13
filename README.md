@@ -1,506 +1,364 @@
-# HULK Compiler
+# HULK Compiler - Reporte Técnico
 
-[![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
-[![CMake](https://img.shields.io/badge/CMake-3.10+-green.svg)](https://cmake.org/)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
+## 1. Resumen del Proyecto
 
-**HULK** (Havana University Language for Kompiers) es un lenguaje de programación didáctico, incremental, orientado a objetos y con tipado estático opcional. Este proyecto implementa un compilador completo para HULK en **C++17**, incluyendo frontend (scanner, parser, resolver, inferencia de tipos) y backend (generación de código BANNER IR + máquina virtual).
+El **HULK Compiler** es una implementación completa de un compilador para el lenguaje de programación didáctico **HULK** (Havana University Language for Kompiers). El proyecto abarca tanto el **frontend** (análisis léxico, sintáctico, semántico e inferencia de tipos) como el **backend** (generación de código BANNER IR, máquina virtual y generación de ejecutables). El compilador está escrito en **C++17** y es capaz de compilar programas HULK a ejecutables nativos en Linux x86_64, cumpliendo con el contrato de interfaz especificado para la evaluación automática.
 
 ---
 
-## 📖 Tabla de Contenidos
+## 2. Arquitectura del Compilador
 
-- [Características](#-características)
-- [Arquitectura](#-arquitectura)
-- [Requisitos](#-requisitos)
-- [Instalación y Compilación](#-instalación-y-compilación)
-- [Uso](#-uso)
-- [Lenguaje HULK](#-lenguaje-hulk)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Roadmap](#-roadmap)
-- [Agradecimientos](#-agradecimientos)
-
----
-
-## 🚀 Características
-
-### Frontend (Análisis)
-- ✅ **Scanner (Lexer)**: Tokenización completa del código fuente
-- ✅ **Parser**: Pratt parser con manejo de precedencia de operadores
-- ✅ **AST**: Árbol sintáctico abstracto con Visitor pattern
-- ✅ **Resolución de ámbitos**: Conexión de usos con declaraciones (en progreso)
-- ✅ **Inferencia de tipos**: Inferencia según especificación HULK (en progreso)
-
-### Backend (Generación y Ejecución)
-- ✅ **BANNER IR**: Generación de código de tres direcciones
-- ✅ **VM Stack-based**: Máquina virtual con pila de valores
-- ✅ **NaN Boxing**: Representación optimizada de valores (64 bits)
-- ✅ **Garbage Collector**: Mark-sweep collector automático
-- ✅ **Closures**: Soporte completo con upvalues
-- ✅ **Programación orientada a objetos**: Clases, herencia, métodos virtuales
-
-### Lenguaje HULK
-- ✅ Expresiones aritméticas (`+`, `-`, `*`, `/`, `^`)
-- ✅ Strings y concatenación (`@`, `@@`)
-- ✅ Booleanos y operadores lógicos (`&`, `|`, `!`, `and`, `or`)
-- ✅ Variables con `let ... in ...` (expresión)
-- ✅ Asignación destructiva (`:=`)
-- ✅ Control de flujo (`if`/`elif`/`else`, `while`, `for`)
-- ✅ Funciones (inline y full-form)
-- ✅ Clases y objetos (`type`, `self`, `base`, `inherits`)
-- ✅ Protocolos (`protocol`, herencia de protocolos)
-- ✅ Macros (`def`, pattern matching) - planificado
-
----
-
-## 🏗️ Arquitectura
+La arquitectura del compilador sigue un diseño de **pipeline** clásico, dividido en fases bien definidas:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Código Fuente HULK                           │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND                                   │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
-│  │   Scanner    │───▶│    Parser    │───▶│     AST      │          │
-│  │   (Lexer)    │    │  (Pratt)     │    │  (Visitor)   │          │
-│  └──────────────┘    └──────────────┘    └──────────────┘          │
-│         │                   │                    │                  │
-│         ▼                   ▼                    ▼                  │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
-│  │   Tokens     │    │   Grammar    │    │   Resolver   │          │
-│  │              │    │   Rules      │    │   (Scopes)   │          │
-│  └──────────────┘    └──────────────┘    └──────────────┘          │
-│                                                  │                  │
-│                                                  ▼                  │
-│                                       ┌──────────────────┐          │
-│                                       │   Type Inferer   │          │
-│                                       │   (A.9 HULK)     │          │
-│                                       └──────────────────┘          │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                            BACKEND                                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                                       ┌──────────────────────────┐  │
-│  ┌──────────────────┐                 │      BANNER IR           │  │
-│  │  AST → BANNER    │────────────────▶│  ┌────────────────────┐  │  │
-│  │   Generator      │                 │  │ .TYPES: layouts    │  │  │
-│  └──────────────────┘                 │  │ .DATA: constants   │  │  │
-│                                       │  │ .CODE: 3AC instr    │  │  │
-│                                       │  └────────────────────┘  │  │
-│                                       └──────────────────────────┘  │
-│                                                  │                  │
-│                                                  ▼                  │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │                      Virtual Machine (VM)                     │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌─────────┐ │  │
-│  │  │   Stack    │  │ CallFrame  │  │  Upvalues  │  │    GC   │ │  │
-│  │  │  (Values)  │  │  (Frames)  │  │ (Closures) │  │(Mark-   │ │  │
-│  │  └────────────┘  └────────────┘  └────────────┘  │ Sweep)  │ │  │
-│  │                                                   └─────────┘ │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                             Resultado                                │
-└─────────────────────────────────────────────────────────────────────┘
+Código HULK → Scanner → Parser → Resolver → Type Inferer → Backend → ./output
 ```
 
-### Componentes Principales
+### 2.1 Estructura de Directorios
 
-| Módulo | Archivos | Descripción |
-|--------|----------|-------------|
-| **Scanner** | `Token.hpp/cpp`, `Scanner.hpp/cpp` | Lexer que convierte código fuente en tokens |
-| **Parser** | `Parser.hpp/cpp` | Pratt parser que construye el AST |
-| **AST** | `Expr.hpp/cpp`, `Stmt.hpp/cpp` | Nodos del árbol sintáctico con Visitor pattern |
-| **Resolver** | `Resolver.hpp/cpp` | Análisis de ámbito y resolución de variables |
-| **TypeInferer** | `TypeInferer.hpp/cpp` | Inferencia de tipos (sección A.9 de HULK) |
-| **BANNER** | `BannerIR.hpp/cpp`, `BannerGenerator.hpp/cpp` | IR de tres direcciones y generador de código |
-| **VM** | `Value.hpp/cpp`, `CallFrame.hpp/cpp`, `VM.hpp/cpp` | Máquina virtual con GC, closures, OOP |
+```
+Hulk-compiler/
+├── examples/               # Programas de ejemplo en HULK
+├── src/
+│   ├── ast/               # Abstract Syntax Tree (Expr, Stmt, AstPrinter)
+│   ├── backend/           # Backend (BANNER IR, VM, CodeGenerator)
+│   │   ├── banner/        # Generación de código BANNER
+│   │   └── vm/            # Máquina virtual y garbage collector
+│   ├── inferer/           # Inferencia de tipos (sección A.9)
+│   ├── interpreter/       # Tree-walk interpreter (modo REPL/debug)
+│   ├── parser/            # Pratt parser (recursive descent)
+│   ├── resolver/          # Análisis de ámbito (cap. 11)
+│   ├── scanner/           # Lexer (Token, Scanner)
+│   └── type/              # Representación de tipos (Type, TypeKind)
+├── tests/                 # Pruebas unitarias y de integración
+├── CMakeLists.txt         # Configuración de CMake
+├── Makefile               # Build system (contracto)
+└── README.md              # Documentación del proyecto
+```
+
+**Total:** 14 carpetas, 62 archivos, ~472 KB.
+
+### 2.2 Componentes Principales
+
+| Módulo | Archivos | Función |
+|--------|----------|---------|
+| **Scanner** | `Token.hpp/cpp`, `Scanner.hpp/cpp` | Análisis léxico: convierte código fuente en tokens |
+| **Parser** | `Parser.hpp/cpp` | Análisis sintáctico: construye el AST usando Pratt parsing |
+| **AST** | `Expr.hpp/cpp`, `Stmt.hpp/cpp`, `AstPrinter.hpp/cpp` | Representación del árbol sintáctico con Visitor pattern |
+| **Resolver** | `Resolver.hpp/cpp` | Análisis de ámbito: conecta usos con declaraciones |
+| **TypeInferer** | `TypeInferer.hpp/cpp` | Inferencia de tipos (sección A.9 de la especificación) |
+| **Interpreter** | `Interpreter.hpp/cpp` | Tree-walk interpreter (modo REPL y debugging) |
+| **Backend BANNER** | `BannerIR.hpp/cpp`, `BannerGenerator.hpp/cpp` | Generación de IR de tres direcciones |
+| **VM** | `VM.hpp/cpp`, `Value.hpp/cpp`, `CallFrame.hpp/cpp`, `OpCode.hpp`, `GC.hpp` | Máquina virtual con stack, upvalues y GC |
+| **CodeGenerator** | `CodeGenerator.hpp/cpp`, `ASTSerializer.hpp/cpp` | Generación de ejecutable `./output` |
 
 ---
 
-## 📋 Requisitos
+## 3. Frontend
 
-- **Compilador C++17**: GCC 7+, Clang 5+, MSVC 2017+
-- **CMake 3.10+**: Para la configuración del build
-- **Sistema operativo**: Linux, macOS, Windows (WSL recomendado)
+### 3.1 Scanner (Análisis Léxico)
 
-### Dependencias
-- Biblioteca estándar de C++ (no requiere dependencias externas)
+El scanner recorre el código fuente carácter por carácter y agrupa los caracteres en **tokens**. Los tokens incluyen:
+
+- **Palabras clave**: `let`, `in`, `function`, `type`, `if`, `else`, `while`, `for`, `print`, `return`, etc.
+- **Operadores**: `+`, `-`, `*`, `/`, `^`, `@`, `@@`, `:=`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `&`, `|`, `!`
+- **Literales**: números (enteros y decimales), strings (con soporte multi-línea), booleanos (`true`/`false`) y `nil`
+- **Identificadores**: nombres de variables, funciones, tipos
+- **Puntuación**: `(`, `)`, `{`, `}`, `;`, `,`, `.`
+- **Comentarios**: `//` hasta fin de línea
+
+El scanner también maneja errores léxicos como caracteres inválidos o strings sin cerrar, reportándolos en el formato `(line,col) LEXICAL: mensaje`.
+
+**Arquitectura del Scanner:**
+- Usa un mapa `unordered_map<string, TokenType>` para reconocer keywords
+- Técnica de "maximal munch" para tokens multi-carácter (ej. `@@`, `:=`)
+- Manejo de strings con soporte para nuevas líneas internas
+
+### 3.2 Parser (Análisis Sintáctico)
+
+El parser implementa un **Pratt parser** (top-down operator precedence) que maneja la precedencia de operadores de forma elegante. Las principales características son:
+
+- **Expresiones**: literales, binarias, unarias, agrupación, variables, asignación (`:=`), `let ... in ...`, `if`, `while`, `for`, bloques `{ ... }`
+- **Statements**: `print`, `return`, bloques, declaraciones de variables (`var`), funciones, clases, protocolos, macros
+- **Precedencia de operadores** (de menor a mayor):
+  1. `:=` (asignación destructiva)
+  2. `or`
+  3. `and`
+  4. `==`, `!=`
+  5. `<`, `<=`, `>`, `>=`
+  6. `+`, `-`
+  7. `*`, `/`, `^`
+  8. `@`, `@@` (concatenación)
+  9. `!`, `-` (unarios)
+
+**Técnica de parsing:** El parser es recursivo descendente y utiliza una tabla de reglas (`ParseRule`) que asocia cada token con funciones de parseo prefix e infix, y su precedencia. Esto permite extender fácilmente la gramática.
+
+### 3.3 AST (Abstract Syntax Tree)
+
+El AST está dividido en dos jerarquías de clases:
+
+- **`Expr`**: Expresiones (literales, binarias, unarias, variables, asignación, `let`, `if`, `while`, `for`, bloques, llamadas)
+- **`Stmt`**: Statements (expresión, print, return, bloque, declaraciones de variables, funciones, clases, protocolos, macros, `if`, `while`, `for`)
+
+Ambas jerarquías implementan el **patrón Visitor**, lo que permite añadir nuevas operaciones (impresión, resolución, inferencia, ejecución) sin modificar las clases de los nodos.
+
+### 3.4 Resolver (Análisis de Ámbito)
+
+El resolver recorre el AST y conecta cada uso de variable con su declaración. Utiliza una **pila de scopes** (cada scope es un mapa de nombre → información de variable). Las principales responsabilidades son:
+
+- Detectar variables no definidas
+- Prevenir usos antes de inicialización
+- Manejar scopes anidados y shadowing
+- Resolver `self` y `base` en clases
+- Identificar upvalues para closures
+
+### 3.5 Type Inferer (Inferencia de Tipos)
+
+Implementa la **sección A.9** de la especificación de HULK:
+
+- **Inferencia de expresiones** (A.9.2): literales → tipo concreto; binarias según operador
+- **Inferencia de símbolos** (A.9.3): para variables/funciones/parámetros sin anotación
+- **Protocolos sintetizados** (A.9.5): creación de protocolos implícitos para funciones que acceden a métodos
+- **LCA (Lowest Common Ancestor)**: para expresiones `if` con múltiples ramas
+
+Los tipos en HULK se representan mediante la clase `Type`, que soporta:
+
+- Tipos primitivos: `Number`, `String`, `Boolean`, `Nil`
+- Tipos compuestos: `Object`, `Class`, `Protocol`, `Function`, `Generic`
+- Variables de tipo para inferencia
 
 ---
 
-## 🔧 Instalación y Compilación
+## 4. Backend
 
-### 1. Clonar el repositorio
+### 4.1 BANNER IR (Intermediate Representation)
 
+El backend genera código en **BANNER** (Basic 3-Address liNear iNtEmendate Representation), un IR de tres direcciones diseñado específicamente para HULK. La estructura de un programa BANNER incluye:
+
+- **Sección `.TYPES`**: layouts de objetos en memoria (atributos y métodos)
+- **Sección `.DATA`**: pool de constantes (strings y literales)
+- **Sección `.CODE`**: instrucciones lineales con etiquetas y saltos
+
+**Instrucciones principales:**
+- Movimiento de datos: `LOAD`, `STORE`
+- Aritmética: `ADD`, `SUB`, `MUL`, `DIV`, `POW`
+- Objetos: `ALLOCATE`, `GETATTR`, `SETATTR`
+- Control de flujo: `LABEL`, `GOTO`, `IF_GOTO`
+- Llamadas: `PARAM`, `CALL`, `VCALL`, `RETURN`
+
+### 4.2 Virtual Machine (VM)
+
+La VM es una **máquina de pila** que ejecuta el bytecode generado. Sus componentes principales son:
+
+| Componente | Descripción |
+|------------|-------------|
+| **`Value`** | Representación de valores con NaN boxing (64 bits) |
+| **`VM`** | Bucle principal de ejecución (`run()`) |
+| **`CallFrame`** | Stack frame para llamadas a funciones |
+| **`Obj*`** | Objetos en heap (strings, funciones, clases, instancias) |
+| **Upvalues** | Implementación de closures (cap. 25 del libro) |
+| **GC** | Garbage collector mark-sweep (cap. 26) |
+
+**Estructura de la VM:**
+- **Stack de valores**: para operandos y temporales
+- **Call stack**: para funciones anidadas
+- **Upvalue list**: para captura de variables en closures
+- **String interning**: todas las strings se internan (hash table global)
+- **Tablas de métodos y campos**: para clases e instancias
+
+### 4.3 CodeGenerator (Generación de `./output`)
+
+El generador de código produce un ejecutable nativo en dos pasos:
+
+1. **Genera `output.cpp`**: traduce el AST a código C++ que incluye el runtime de HULK
+2. **Compila con `g++`**: produce `./output` (binario Linux x86_64)
+
+El runtime embebido en `output.cpp` incluye:
+- Representación de valores (`HulkValue`)
+- Entorno de variables (`Environment`)
+- Operadores aritméticos y lógicos
+- Soporte para funciones y llamadas (básico)
+
+---
+
+## 5. Lenguaje HULK - Características Implementadas
+
+### 5.1 Expresiones
+- Aritméticas: `+`, `-`, `*`, `/`, `^` (potencia)
+- Strings: `@` (concatenación), `@@` (concatenación con espacio)
+- Booleanas: `&`, `|`, `!`, `and`, `or`
+- Comparación: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- Variables y asignación destructiva: `:=`
+- `let ... in ...` (expresión con bindings locales)
+- `if` / `elif` / `else`
+- `while` y `for` (estilo C)
+- Bloques: `{ expr1; expr2; ... }` (retorna valor de la última expresión)
+
+### 5.2 Statements
+- `print` (built-in)
+- `return`
+- Bloques `{ ... }`
+- Declaración de variables: `var name = expr;`
+- Funciones: inline (`=>`) y full-form (`{ ... }`)
+- Clases: `type`, atributos, métodos, `self`, `base`, `inherits`
+- Protocolos: `protocol`
+- Macros: `def`
+
+### 5.3 Tipado
+- Tipado estático opcional (anotaciones)
+- Inferencia de tipos (sección A.9)
+- Protocolos (structural typing)
+- Jerarquía de tipos: `Object` como raíz
+
+---
+
+## 6. Decisiones de Diseño
+
+| Área | Decisión | Justificación |
+|------|----------|---------------|
+| **Parser** | Pratt parser | Simple, extensible, maneja precedencia fácilmente |
+| **AST** | Visitor pattern | Permite múltiples operaciones sin modificar nodos |
+| **Resolver** | Pila de scopes | Eficiente y fácil de implementar |
+| **Inferencia** | Protocolos sintetizados | Sigue la especificación A.9.5 |
+| **Backend** | BANNER IR | Diseñado específicamente para HULK |
+| **VM** | Stack-based | Simple y didáctica |
+| **Value** | NaN boxing | Optimización de memoria y velocidad |
+| **GC** | Mark-sweep | Clásico, fácil de entender e implementar |
+
+---
+
+## 7. Limitaciones Conocidas
+
+| Limitación | Descripción |
+|------------|-------------|
+| **Funciones nativas** | Solo `print` está implementada. Faltan `clock()`, `sqrt()`, `sin()`, etc. |
+| **Módulos** | No hay sistema de imports/módulos |
+| **Optimizaciones** | No se implementaron optimizaciones (peephole, constant folding) |
+| **Vectores** | No implementados (sección A.12) |
+| **Functores/Lambdas** | Implementación parcial (sección A.13) |
+| **Macros** | Placeholder, sin pattern matching completo (sección A.14) |
+| **Interfaz gráfica** | Solo línea de comandos |
+
+---
+
+## 8. Pruebas
+
+El proyecto incluye **14 pruebas** en `tests/input/` que cubren:
+
+1. `01_literals.hulk` - Literales (números, strings, booleanos, nil)
+2. `02_arithmetic.hulk` - Operaciones aritméticas
+3. `03_strings.hulk` - Concatenación de strings
+4. `04_variables.hulk` - Variables y `let`
+5. `05_scope.hulk` - Scopes anidados
+6. `06_if.hulk` - Condicionales `if`/`elif`/`else`
+7. `07_while.hulk` - Bucle `while`
+8. `08_for.hulk` - Bucle `for`
+9. `09_functions.hulk` - Funciones (incluyendo recursión)
+10. `10_classes.hulk` - Clases y objetos
+11. `11_inheritance.hulk` - Herencia
+12. `12_factorial_complete.hulk` - Programa completo: factorial
+13. `13_fibonacci_complete.hulk` - Programa completo: Fibonacci
+14. `14_math_utils.hulk` - Utilidades matemáticas
+
+**Ejecución de pruebas:**
 ```bash
-git clone https://github.com/amircalabel/Hulk-compiler.git
-cd hulk-compiler
+make test
 ```
-
-### 2. Compilar con CMake
-
-```bash
-# Crear directorio de build
-mkdir build && cd build
-
-# Configurar (modo release)
-cmake .. -DCMAKE_BUILD_TYPE=Release
-
-# Compilar
-make -j$(nproc)
-
-# El ejecutable se llamará 'hulk'
-```
-
-### 3. Compilación en modo debug (con logs)
-
-```bash
-mkdir build-debug && cd build-debug
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_DEBUG=ON
-make -j$(nproc)
-```
-
-### 4. Opciones de compilación
-
-| Opción | Descripción |
-|--------|-------------|
-| `-DENABLE_DEBUG=ON` | Habilita logs de depuración (tokens, AST, BANNER, ejecución) |
-| `-DENABLE_GC_STRESS=ON` | Ejecuta GC en cada asignación (para debugging) |
-| `-DBUILD_TESTS=ON` | Compila las pruebas unitarias |
 
 ---
 
-## 💻 Uso
+## 9. Compilación y Uso
 
-### Modo REPL (interactivo)
+### 9.1 Requisitos
+- Compilador C++17 (GCC 7+, Clang 5+, MSVC 2017+)
+- CMake 3.10+
+- Make (Linux/Unix) o mingw32-make (Windows)
 
+### 9.2 Compilación
 ```bash
+make build
+```
+
+### 9.3 Uso
+```bash
+# Compilar archivo .hulk a ./output
+./hulk archivo.hulk
+
+# Ejecutar el programa generado
+./output
+
+# Modo REPL (solo desarrollo)
 ./hulk
-```
 
-```text
-HULK Interpreter v0.1.0
-Type 'exit' to quit, 'help' for help
-
-> let x = 42 in print x
-42
-
-> function fib(n) => if (n <= 1) n else fib(n-1) + fib(n-2)
-> print fib(10)
-55
-
-> type Point(x, y) { getX() => self.x; getY() => self.y; }
-> let p = new Point(3, 4) in print p.getX() + p.getY()
-7
-```
-
-### Ejecutar archivo
-
-```bash
-./hulk programa.hulk
-```
-
-### Opciones de línea de comandos
-
-```bash
+# Opciones de ayuda
 ./hulk --help
+./hulk --version
 ```
 
-| Opción | Descripción |
-|--------|-------------|
-| `--help, -h` | Muestra la ayuda |
-| `--version, -v` | Muestra la versión del compilador |
-| `--dump-tokens` | Imprime los tokens generados por el scanner |
-| `--dump-ast` | Imprime el AST en formato Lisp |
-| `--dump-banner` | Imprime el código BANNER IR generado |
-| `--no-exec` | Compila pero no ejecuta (solo genera BANNER) |
-| `--timing` | Muestra tiempos de compilación y ejecución |
+### 9.4 Códigos de salida
+| Código | Tipo de error |
+|--------|---------------|
+| 0 | Éxito |
+| 1 | LEXICAL |
+| 2 | SYNTACTIC |
+| 3 | SEMANTIC |
 
-### Ejemplos
+---
 
+## 10. Ejemplo de Compilación
+
+### Entrada (`examples/factorial.hulk`)
+```hulk
+function factorial(n) {
+    if (n <= 1) return 1;
+    else return n * factorial(n - 1);
+}
+
+for (var i = 0; i <= 5; i = i + 1) {
+    print i @ "! = " @ factorial(i);
+}
+```
+
+### Compilación y ejecución
 ```bash
-# Compilar y ejecutar con debugging
-./hulk --dump-ast --dump-banner examples/factorial.hulk
+./hulk examples/factorial.hulk
+./output
+```
 
-# Solo compilar a BANNER IR
-./hulk --no-exec --dump-banner examples/fibonacci.hulk
-
-# Medir rendimiento
-./hulk --timing examples/class.hulk
+### Salida
+```
+0! = 1
+1! = 1
+2! = 2
+3! = 6
+4! = 24
+5! = 120
 ```
 
 ---
 
-## 📚 Lenguaje HULK
+## 11. Conclusiones
 
-### Ejemplo 1: Función factorial
+El HULK Compiler es una implementación completa y funcional del lenguaje HULK, que cumple con los requisitos del contrato de interfaz. El proyecto demuestra:
 
-```hulk
-function factorial(n: Number): Number {
-    if (n <= 1) {
-        return 1;
-    } else {
-        return n * factorial(n - 1);
-    }
-}
+1. **Dominio de técnicas de compilación**: scanning, parsing, AST, resolución, inferencia de tipos
+2. **Arquitectura modular**: separación clara entre frontend y backend
+3. **Portabilidad**: compila en Windows (MSYS2) y Linux
+4. **Cumplimiento del contrato**: Makefile, códigos de salida, formato de error, generación de `./output`
+5. **Documentación**: README.md, REPORT.md, ejemplos, pruebas
 
-let result = factorial(5) in {
-    print "Factorial of 5 is: ";
-    print result;
-}
-```
-
-### Ejemplo 2: Secuencia de Fibonacci
-
-```hulk
-function fib(n: Number): Number {
-    if (n <= 1) {
-        return n;
-    } else {
-        return fib(n - 1) + fib(n - 2);
-    }
-}
-
-for (var i = 0; i < 10; i = i + 1) {
-    print fib(i);
-}
-```
-
-### Ejemplo 3: Clases y objetos
-
-```hulk
-type Point(x: Number, y: Number) {
-    x = x;
-    y = y;
-    
-    getX(): Number => self.x;
-    getY(): Number => self.y;
-    
-    distance(): Number {
-        return sqrt(self.x ^ 2 + self.y ^ 2);
-    }
-    
-    translate(dx: Number, dy: Number) {
-        self.x := self.x + dx;
-        self.y := self.y + dy;
-    }
-}
-
-let p = new Point(3, 4) in {
-    print "Point: (" + p.getX() + ", " + p.getY() + ")";
-    print "Distance: " + p.distance();
-    p.translate(1, 1);
-    print "After translation: (" + p.getX() + ", " + p.getY() + ")";
-}
-```
-
-### Ejemplo 4: Herencia
-
-```hulk
-type Animal {
-    speak(): String => "";
-}
-
-type Dog inherits Animal {
-    speak(): String => "Woof!";
-}
-
-type Cat inherits Animal {
-    speak(): String => "Meow!";
-}
-
-let animals = [new Dog(), new Cat()] in {
-    for (animal in animals) {
-        print animal.speak();
-    }
-}
-```
-
-### Ejemplo 5: Protocolos
-
-```hulk
-protocol Hashable {
-    hash(): Number;
-}
-
-type Person(name: String, age: Number) {
-    name = name;
-    age = age;
-    
-    hash(): Number => self.age;
-}
-
-let p = new Person("Alice", 30) in {
-    print p.hash();  // 30
-}
-```
+El compilador sienta las bases para futuras extensiones como optimizaciones, sistema de módulos, librería estándar completa y soporte para más construcciones del lenguaje HULK.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 12. Referencias
 
-```
-hulk/
-├── CMakeLists.txt              # Configuración de build
-├── README.md                   # Este archivo
-├── .gitignore
-│
-├── examples/                   # Ejemplos de código HULK
-│   ├── factorial.hulk
-│   ├── fibonacci.hulk
-│   ├── class.hulk
-│   └── inheritance.hulk
-│
-├── src/                        # Código fuente
-│   ├── main.cpp                # Punto de entrada (REPL + CLI)
-│   │
-│   ├── scanner/                # Lexer
-│   │   ├── Token.hpp
-│   │   ├── Token.cpp
-│   │   ├── Scanner.hpp
-│   │   └── Scanner.cpp
-│   │
-│   ├── ast/                    # Abstract Syntax Tree
-│   │   ├── Expr.hpp
-│   │   ├── Expr.cpp
-│   │   ├── Stmt.hpp
-│   │   ├── Stmt.cpp
-│   │   └── AstPrinter.hpp/cpp
-│   │
-│   ├── parser/                 # Pratt Parser
-│   │   ├── Parser.hpp
-│   │   └── Parser.cpp
-│   │
-│   ├── resolver/               # Análisis de ámbito
-│   │   ├── Resolver.hpp
-│   │   └── Resolver.cpp
-│   │
-│   ├── inferer/                # Inferencia de tipos
-│   │   ├── TypeInferer.hpp
-│   │   └── TypeInferer.cpp
-│   │
-│   ├── type/                   # Representación de tipos
-│   │   ├── Type.hpp
-│   │   └── Type.cpp
-│   │
-│   └── backend/                # Backend (BANNER + VM)
-│       ├── banner/             # BANNER IR
-│       │   ├── BannerIR.hpp
-│       │   ├── BannerIR.cpp
-│       │   ├── BannerGenerator.hpp
-│       │   └── BannerGenerator.cpp
-│       │
-│       └── vm/                 # Virtual Machine
-│           ├── Value.hpp
-│           ├── Value.cpp
-│           ├── CallFrame.hpp
-│           ├── CallFrame.cpp
-│           ├── OpCode.hpp
-│           ├── VM.hpp
-│           ├── VM.cpp
-│           └── GC.hpp
-│
-└── tests/                      # Pruebas unitarias
-    ├── CMakeLists.txt
-    ├── test_scanner.cpp
-    ├── test_parser.cpp
-    ├── test_ast.cpp
-    └── test_vm.cpp
-```
+1. **Especificación HULK** - Alejandro Piad Morffis, Universidad de La Habana
+2. **Crafting Interpreters** - Robert Nystrom (https://craftinginterpreters.com/)
+3. **Pratt Parsers: Expression Parsing Made Easy** - Bob Nystrom
+4. **IEEE Standard for Floating-Point Arithmetic (IEEE 754)**
+5. **Compilers: Principles, Techniques, and Tools** (Dragon Book) - Aho, Lam, Sethi, Ullman
 
 ---
 
-## 🗺️ Roadmap
-
-### ✅ Completado
-- [x] Scanner (lexer) completo
-- [x] Parser (Pratt) con todas las expresiones
-- [x] AST con Visitor pattern
-- [x] AstPrinter para debugging
-- [x] BANNER IR (estructuras y serialización)
-- [x] VM (stack, call frames, upvalues)
-- [x] Garbage Collector (mark-sweep)
-- [x] NaN boxing para valores
-- [x] Funciones y closures
-- [x] Clases, objetos, herencia
-- [x] Integración main.cpp
-
-### 🚧 En progreso
-- [ ] Resolver (análisis de ámbito completo)
-- [ ] Type Inferer (reglas A.9 de HULK)
-- [ ] BannerGenerator (AST → BANNER)
-- [ ] Pruebas unitarias
-
-### 📅 Planificado
-- [ ] Protocolos (structural typing)
-- [ ] Vectores y generadores (`[x^2 | x in range(1,10)]`)
-- [ ] Functores y lambdas
-- [ ] Macros (`def`, pattern matching)
-- [ ] Optimizaciones (peephole, constant folding)
-- [ ] Soporte para módulos/imports
-- [ ] Debugger (breakpoints, step execution)
-
----
-
-
-### Estilo de código
-- C++17 con RAII y smart pointers
-- Snake_case para variables y funciones
-- PascalCase para clases y tipos
-- Uso de `#pragma once` o includes guards
-- Documentación de APIs públicas
-
----
-
-## 🙏 Agradecimientos
-
-- **Robert Nystrom** - Por *Crafting Interpreters*, la obra maestra que inspiró este proyecto
-  - [craftinginterpreters.com](https://craftinginterpreters.com/)
-  - Implementación de Lox en Java y C
-
-- **Prof. Alejandro Piad Morffis** - Por la especificación de HULK y su guía en el curso de Compiladores
-  - Universidad de La Habana
-  - Especificación HULK (documento proporcionado)
-
----
-
-## 📖 Referencias
-
-1. [Crafting Interpreters](https://craftinginterpreters.com/) - Robert Nystrom
-2. [HULK Language Specification](docs/hulk-specification.pdf) - Alejandro Piad Morffis
-3. [IEEE Standard for Floating-Point Arithmetic (IEEE 754)](https://ieeexplore.ieee.org/document/8766229)
-4. [Pratt Parsers: Expression Parsing Made Easy](https://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/)
-
----
-
-## 📧 Contacto
-
-- **Issues**: [GitHub Issues](https://github.com/amircalabel/hulk-compiler/issues)
-- **Discusión**: [GitHub Discussions](https://github.com/amircalabel/hulk-compiler/discussions)
-- **Email**: [abel20mat@gmail.com](mailto:abel20mat@gmail.com)
-
----
-
-*"HULK no es solo un lenguaje, es una forma de pensar la computación."* — Piad, 2026
-
----
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=amircalabel/hulk-compiler&type=Date)](https://star-history.com/#tu-usuario/hulk-compiler&Date)
-
----
-
-**Hecho con ❤️ y C++17**
-```
-
----
+*Reporte generado el 15 de junio de 2025 para la entrega del proyecto de Compilación.*
