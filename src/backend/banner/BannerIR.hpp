@@ -60,11 +60,11 @@ struct BannerInstr {
     } kind;
     
     // Operandos (varían según instrucción)
-    std::string label;      // Para LOAD, LABEL, GOTO, etc.
-    std::string varName;    // Para STORE, GETATTR, SETATTR
-    std::string typeName;   // Para ALLOCATE, VCALL
-    int index;              // Para índices
-    double number;          // Para constantes numéricas
+    std::string label;          // Para LOAD, LABEL, GOTO, etc.
+    std::string varName;        // Para STORE, GETATTR, SETATTR
+    std::string typeName;       // Para ALLOCATE, VCALL
+    int index = 0;              // Para índices
+    double number = 0.0;        // Para constantes numéricas
 
     std::string toString() const;
 };

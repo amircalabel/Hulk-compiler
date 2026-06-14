@@ -73,8 +73,11 @@ private:
         int nextParamSlot = 0;
         
         int scopeDepth = 0;
-        int scopeSize = 0;
-        
+
+        // ISSUE-27 fix: track the nextLocalSlot value at the start of each scope
+        // so endScope() can correctly remove only the locals added in that scope.
+        std::stack<int> scopeSlotStack;
+
         // Labels para control flow
         int labelCounter = 0;
         std::stack<std::string> breakLabels;

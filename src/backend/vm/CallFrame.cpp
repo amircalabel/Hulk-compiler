@@ -30,6 +30,10 @@ uint16_t CallFrame::readShort() {
 
 Value CallFrame::readConstant() {
     uint8_t index = readByte();
+    // ISSUE-25 fix: bounds-check so a malformed bytecode stream can't cause OOB
+    if (index >= closure->function->constants.size()) {
+        return Value::makeNil();
+    }
     return closure->function->constants[index];
 }
 

@@ -455,19 +455,21 @@ BannerGenerator::visitVariableExpr(const VariableExpr& expr) {
     return 0.0;
 }
 
-std::variant<double, std::string, bool, std::nullptr_t> 
+std::variant<double, std::string, bool, std::nullptr_t>
 BannerGenerator::visitAssignExpr(const AssignExpr& expr) {
+    // Evaluate RHS once
     expr.value->accept(*this);
-    
-    // Asignación destructiva (:=)
-    BannerInstr instr;
-    instr.kind = BannerInstr::Kind::STORE;
-    instr.varName = expr.name.lexeme;
-    emit(instr);
-    
-    // Assignment también deja el valor en el stack
-    expr.value->accept(*this);
-    
+
+    // STORE pops the value into the variable
+    BannerInstr store;
+    store.kind    = BannerInstr::Kind::STORE;
+    store.varName = expr.name.lexeme;
+    emit(store);
+
+    // ISSUE-18 fix: don't re-evaluate RHS (would double side-effects).
+    // Reload the stored value so the assignment expression leaves a result on the stack.
+    emitLoadLocal(expr.name.lexeme);
+
     return 0.0;
 }
 
@@ -720,21 +722,27 @@ BannerGenerator::visitCallExpr(const CallExpr& expr) {
 
 void BannerGenerator::beginScope() {
     ctx.scopeDepth++;
+    // Record the slot watermark so endScope knows which slots belong to this scope
+    ctx.scopeSlotStack.push(ctx.nextLocalSlot);
 }
 
 void BannerGenerator::endScope() {
-    // Eliminar variables locales de este ámbito
+    // ISSUE-27 fix: use the saved watermark to identify locals from this scope
+    int scopeBase = ctx.scopeSlotStack.empty() ? 0 : ctx.scopeSlotStack.top();
+    if (!ctx.scopeSlotStack.empty()) ctx.scopeSlotStack.pop();
+
     std::vector<std::string> toRemove;
     for (const auto& [name, slot] : ctx.localSlots) {
-        if (slot >= ctx.nextLocalSlot - ctx.scopeSize) {
+        if (slot >= scopeBase) {
             toRemove.push_back(name);
         }
     }
-    
+
     for (const auto& name : toRemove) {
         ctx.localSlots.erase(name);
     }
-    
+
+    ctx.nextLocalSlot = scopeBase;
     ctx.scopeDepth--;
 }
 

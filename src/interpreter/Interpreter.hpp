@@ -5,10 +5,12 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
-#include <variant>
-#include <iostream>
+#include <optional>
+#include <stdexcept> 
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
+#include "backend/vm/Value.hpp"
+#include "backend/vm/VM.hpp"
 
 namespace hulk {
 
@@ -16,18 +18,21 @@ namespace hulk {
 class Environment;
 
 // ============================================================
-// Interpreter - Evalúa el AST (tree-walk interpreter)
+// Interpreter - Ejecuta el AST (tree-walk interpreter)
 // ============================================================
 class Interpreter : public ExprVisitor, public StmtVisitor {
 public:
     Interpreter();
     ~Interpreter();
     
-    // Punto de entrada principal
     void interpret(const std::vector<std::unique_ptr<Stmt>>& statements);
+    void executeBlock(const std::vector<std::unique_ptr<Stmt>>& statements, 
+                      std::shared_ptr<Environment> environment);
     
-    // Para el Resolver (opcional)
     void resolve(Expr& expr, int depth);
+    std::optional<int> getResolvedDepth(const Expr& expr) const;
+    
+    backend::Value getLastValue() const { return lastValue; }
     
     // ============================================================
     // Visitadores para Statements
@@ -41,12 +46,9 @@ public:
     void visitClassDeclStmt(const ClassDeclStmt& stmt) override;
     void visitProtocolDeclStmt(const ProtocolDeclStmt& stmt) override;
     void visitMacroDeclStmt(const MacroDeclStmt& stmt) override;
-    void visitIfStmt(const IfStmt& stmt) override;
-    void visitWhileStmt(const WhileStmt& stmt) override;
-    void visitForStmt(const ForStmt& stmt) override;
     
     // ============================================================
-    // Visitadores para Expresiones
+    // Visitadores para Expresiones - Retornan variant, no Value
     // ============================================================
     std::variant<double, std::string, bool, std::nullptr_t> visitLiteralExpr(const LiteralExpr& expr) override;
     std::variant<double, std::string, bool, std::nullptr_t> visitBinaryExpr(const BinaryExpr& expr) override;
@@ -65,36 +67,51 @@ private:
     std::shared_ptr<Environment> globals;
     std::shared_ptr<Environment> environment;
     std::unordered_map<const Expr*, int> locals;
+    backend::Value lastValue;
     
-    // Helpers
+    bool hasReturnValue = false;
+    backend::Value returnValue;
+    
+    backend::Value evaluate(Expr& expr);
     void execute(Stmt& stmt);
-    std::variant<double, std::string, bool, std::nullptr_t> evaluate(Expr& expr);
-    bool isTruthy(const std::variant<double, std::string, bool, std::nullptr_t>& value) const;
-    bool isEqual(const std::variant<double, std::string, bool, std::nullptr_t>& a,
-                 const std::variant<double, std::string, bool, std::nullptr_t>& b) const;
-    std::string stringify(const std::variant<double, std::string, bool, std::nullptr_t>& value) const;
+    backend::Value lookUpVariable(const Token& name, const Expr& expr);
+    bool isTruthy(const backend::Value& value) const;
+    bool isEqual(const backend::Value& a, const backend::Value& b) const;
+    std::string stringify(const backend::Value& value) const;
     
-    void runtimeError(const std::string& message);
+    void runtimeError(const Token& token, const std::string& message);
+    
+    // Convertir variant a Value
+    backend::Value variantToValue(const std::variant<double, std::string, bool, std::nullptr_t>& var);
 };
 
 // ============================================================
-// Environment - Entorno de variables
+// Environment
 // ============================================================
 class Environment : public std::enable_shared_from_this<Environment> {
 public:
     explicit Environment(std::shared_ptr<Environment> enclosing = nullptr);
     
-    void define(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value);
-    std::variant<double, std::string, bool, std::nullptr_t> get(const std::string& name) const;
-    void assign(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value);
-    
+    void define(const std::string& name, const backend::Value& value);
+    backend::Value get(const Token& name) const;
+    void assign(const Token& name, const backend::Value& value);
+    backend::Value getAt(int distance, const std::string& name) const;
+    void assignAt(int distance, const Token& name, const backend::Value& value);
     std::shared_ptr<Environment> ancestor(int distance) const;
-    std::variant<double, std::string, bool, std::nullptr_t> getAt(int distance, const std::string& name) const;
-    void assignAt(int distance, const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value);
     
 private:
     std::shared_ptr<Environment> enclosing;
-    std::unordered_map<std::string, std::variant<double, std::string, bool, std::nullptr_t>> values;
+    std::unordered_map<std::string, backend::Value> values;
+};
+
+// ============================================================
+// Excepción para return
+// ============================================================
+class ReturnException : public std::runtime_error {
+public:
+    backend::Value value;
+    explicit ReturnException(const backend::Value& val)
+        : std::runtime_error("return"), value(val) {}
 };
 
 } // namespace hulk

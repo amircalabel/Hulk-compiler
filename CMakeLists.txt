@@ -27,6 +27,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_compile_options(-O3 -DNDEBUG)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # ISSUE-35 fix: AddressSanitizer + UBSanitizer catch memory bugs at runtime.
+        # This would immediately surface ISSUE-02 through ISSUE-06 during testing.
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+        add_link_options(-fsanitize=address,undefined)
     endif()
 endif()
 

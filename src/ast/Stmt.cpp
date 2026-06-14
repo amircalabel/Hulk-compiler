@@ -1,8 +1,6 @@
 // src/ast/Stmt.cpp
 #include "Stmt.hpp"
 
-namespace hulk {
-
 // ============================================================
 // ExpressionStmt
 // ============================================================
@@ -67,40 +65,6 @@ void FunctionDeclStmt::accept(StmtVisitor& visitor) const {
 }
 
 // ============================================================
-// IfStmt
-// ============================================================
-IfStmt::IfStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> thenBranch,
-               std::unique_ptr<Stmt> elseBranch)
-    : condition(std::move(condition)), thenBranch(std::move(thenBranch)),
-      elseBranch(std::move(elseBranch)) {}
-
-void IfStmt::accept(StmtVisitor& visitor) const {
-    visitor.visitIfStmt(*this);
-}
-
-// ============================================================
-// WhileStmt
-// ============================================================
-WhileStmt::WhileStmt(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> body)
-    : condition(std::move(condition)), body(std::move(body)) {}
-
-void WhileStmt::accept(StmtVisitor& visitor) const {
-    visitor.visitWhileStmt(*this);
-}
-
-// ============================================================
-// ForStmt
-// ============================================================
-ForStmt::ForStmt(std::unique_ptr<Stmt> initializer, std::unique_ptr<Expr> condition,
-                 std::unique_ptr<Expr> increment, std::unique_ptr<Stmt> body)
-    : initializer(std::move(initializer)), condition(std::move(condition)),
-      increment(std::move(increment)), body(std::move(body)) {}
-
-void ForStmt::accept(StmtVisitor& visitor) const {
-    visitor.visitForStmt(*this);
-}
-
-// ============================================================
 // ClassDeclStmt
 // ============================================================
 ClassDeclStmt::ClassDeclStmt(Token name, std::vector<Token> typeArguments,
@@ -135,6 +99,4 @@ MacroDeclStmt::MacroDeclStmt(Token name, std::vector<Parameter> parameters,
 
 void MacroDeclStmt::accept(StmtVisitor& visitor) const {
     visitor.visitMacroDeclStmt(*this);
-}
-
-} // namespace hulk
+}// namespace hulk
