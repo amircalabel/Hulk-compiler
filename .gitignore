@@ -1,0 +1,7 @@
+# Carpetas a ignorar
+.vscode
+build
+
+#Archivos a ignorar
+Compiling instructions.md
+folder-structure.md
