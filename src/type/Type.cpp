@@ -76,7 +76,7 @@ bool Type::conformsTo(const Type& other) const {
     // Protocolo (A.10.2, A.10.4)
     if (kind == TypeKind::CLASS && other.kind == TypeKind::PROTOCOL) {
         // Una clase conforma a un protocolo si implementa todos sus métodos
-        if (!protocolInfo && classInfo) {
+        if (other.protocolInfo && classInfo) {
             for (const auto& method : other.protocolInfo->methods) {
                 bool found = false;
                 for (const auto& classMethod : classInfo->methods) {
@@ -94,8 +94,14 @@ bool Type::conformsTo(const Type& other) const {
     
     // Protocolo extiende otro protocolo
     if (kind == TypeKind::PROTOCOL && other.kind == TypeKind::PROTOCOL) {
-        if (protocolInfo && protocolInfo->extends) {
-            return protocolInfo->extends->conformsTo(other);
+        if (protocolInfo && other.protocolInfo) {
+            const ProtocolType* current = protocolInfo.get();
+            while (current != nullptr) {
+                if (current->name == other.protocolInfo->name) {
+                    return true;
+                }
+                current = current->extends.get();
+            }
         }
         return false;
     }

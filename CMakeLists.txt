@@ -41,19 +41,27 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(FRONTEND_SOURCES
     src/main.cpp
+
     # Scanner
     src/scanner/Token.cpp
     src/scanner/Scanner.cpp
+
     # AST
     src/ast/Expr.cpp
     src/ast/Stmt.cpp
     src/ast/AstPrinter.cpp
+
     # Parser
     src/parser/Parser.cpp
-    # Resolver (pendiente - implementación futura)
-    # src/resolver/Resolver.cpp
-    # Type Inferer (pendiente)
-    # src/inferer/TypeInferer.cpp
+
+    # Resolver
+    src/resolver/Resolver.cpp
+
+    # Inferer
+    src/inferer/TypeInferer.cpp
+
+    # Interpreter
+    src/interpreter/Interpreter.cpp 
 )
 
 # ============================================================
@@ -61,9 +69,14 @@ set(FRONTEND_SOURCES
 # ============================================================
 
 set(BACKEND_SOURCES
+    # Backend utilities
+    src/backend/ASTSerializer.cpp
+    src/backend/CodeGenerator.cpp
+
     # BANNER IR
     src/backend/banner/BannerIR.cpp
     src/backend/banner/BannerGenerator.cpp
+
     # VM
     src/backend/vm/Value.cpp
     src/backend/vm/CallFrame.cpp
@@ -81,6 +94,8 @@ set(HEADERS
     src/ast/Stmt.hpp
     src/ast/AstPrinter.hpp
     src/parser/Parser.hpp
+    src/backend/ASTSerializer.hpp
+    src/backend/CodeGenerator.hpp
     src/backend/banner/BannerIR.hpp
     src/backend/banner/BannerGenerator.hpp
     src/backend/vm/Value.hpp
