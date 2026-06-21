@@ -644,12 +644,12 @@ Este proyecto está fuertemente inspirado en:
 - [x] Scanner (Lexer)
 - [x] Parser (AST)
 - [x] Sistema de errores básico
-- [ ] **AstPrinter** (debugging del AST)
-- [ ] **Resolver** (análisis de ámbitos)
-- [ ] **Type Inferer** (inferencia de tipos, sección A.9)
-- [ ] **Type Checker** (verificación de tipos)
-- [ ] **Backend**: Generación de código BANNER IR
-- [ ] **Virtual Machine**: Ejecución de bytecode
+- [x] **AstPrinter** (debugging del AST)
+- [x] **Resolver** (análisis de ámbitos)
+- [x] **Type Inferer** (inferencia de tipos, sección A.9)
+- [x] **Type Checker** (verificación de tipos)
+- [x] **Backend**: Generación de código BANNER IR
+- [x] **Virtual Machine**: Ejecución de bytecode
 - [ ] **Garbage Collector** (mark-sweep)
 - [ ] **Optimizaciones** (NaN boxing, hash table improvements)
 
@@ -666,9 +666,5 @@ Este proyecto está fuertemente inspirado en:
 ---
 
 *"HULK no es solo un lenguaje, es una forma de pensar la computación."* — Piad, 2026
-```
 
->>>>>>> f1eb7b4 (Initial commit)
-=======
 *Reporte generado el 15 de junio de 2025 para la entrega del proyecto de Compilación.*
->>>>>>> dc305cda7a1606304737ffc102afa33114236755
