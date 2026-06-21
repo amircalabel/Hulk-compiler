@@ -14,6 +14,7 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::TOKEN_SEMICOLON: return "SEMICOLON";
         case TokenType::TOKEN_SLASH: return "SLASH";
         case TokenType::TOKEN_STAR: return "STAR";
+        case TokenType::TOKEN_PERCENT: return "PERCENT";
         case TokenType::TOKEN_CARET: return "CARET";
         case TokenType::TOKEN_AT: return "AT";
         case TokenType::TOKEN_AT_AT: return "AT_AT";
@@ -52,6 +53,9 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::TOKEN_TRUE: return "TRUE";
         case TokenType::TOKEN_FALSE: return "FALSE";
         case TokenType::TOKEN_NIL: return "NIL";
+        case TokenType::TOKEN_AND: return "AND";
+        case TokenType::TOKEN_OR: return "OR";
+        case TokenType::TOKEN_NOT: return "NOT";
         case TokenType::TOKEN_ERROR: return "ERROR";
         case TokenType::TOKEN_EOF: return "EOF";
         default: return "UNKNOWN";

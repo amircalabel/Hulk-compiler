@@ -13,6 +13,7 @@ enum class TokenType {
     TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS,
     TOKEN_SEMICOLON, TOKEN_SLASH, TOKEN_STAR,
     TOKEN_CARET,      // ^ (potencia)
+    TOKEN_PERCENT,    // % (módulo)
     TOKEN_AT,         // @ (concatenación)
     TOKEN_AT_AT,      // @@ (concat con espacio)
 

@@ -28,6 +28,9 @@ std::unordered_map<std::string, TokenType> Scanner::keywords = {
     {"base", TokenType::TOKEN_BASE},
     {"is", TokenType::TOKEN_IS},
     {"as", TokenType::TOKEN_AS},
+    {"and", TokenType::TOKEN_AND},
+    {"or", TokenType::TOKEN_OR},
+    {"not", TokenType::TOKEN_NOT},
     {"true", TokenType::TOKEN_TRUE},
     {"false", TokenType::TOKEN_FALSE},
     {"nil", TokenType::TOKEN_NIL}
@@ -110,6 +113,7 @@ void Scanner::scanToken() {
         case '+': addToken(TokenType::TOKEN_PLUS); break;
         case ';': addToken(TokenType::TOKEN_SEMICOLON); break;
         case '*': addToken(TokenType::TOKEN_STAR); break;
+        case '%': addToken(TokenType::TOKEN_PERCENT); break;
         case '^': addToken(TokenType::TOKEN_CARET); break;
         case '@': {
             // @@ es el operador de concatenación con espacio
@@ -142,7 +146,13 @@ void Scanner::scanToken() {
             addToken(match('=') ? TokenType::TOKEN_BANG_EQUAL : TokenType::TOKEN_BANG);
             break;
         case '=':
-            addToken(match('=') ? TokenType::TOKEN_EQUAL_EQUAL : TokenType::TOKEN_EQUAL);
+            if (match('>')) {
+                addToken(TokenType::TOKEN_ARROW);
+            } else if (match('=')) {
+                addToken(TokenType::TOKEN_EQUAL_EQUAL);
+            } else {
+                addToken(TokenType::TOKEN_EQUAL);
+            }
             break;
         case '<':
             addToken(match('=') ? TokenType::TOKEN_LESS_EQUAL : TokenType::TOKEN_LESS);
@@ -210,7 +220,7 @@ void Scanner::number() {
 }
 
 void Scanner::identifier() {
-    while (isAlphaNumeric(peek())) advance();
+    while (isAlphaNumeric(peek()) || peek() == '$') advance();
 
     std::string text = source.substr(start, current - start);
 
@@ -226,7 +236,8 @@ bool Scanner::isDigit(char c) const {
 bool Scanner::isAlpha(char c) const {
     return (c >= 'a' && c <= 'z') ||
            (c >= 'A' && c <= 'Z') ||
-           c == '_';
+           c == '_' ||
+           c == '$';
 }
 
 bool Scanner::isAlphaNumeric(char c) const {

@@ -202,6 +202,13 @@ Interpreter::visitBinaryExpr(const BinaryExpr& expr) {
             }
             runtimeError("Operands must be numbers");
             return nullptr;
+        case TokenType::TOKEN_PERCENT:
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                if (std::get<double>(right) == 0) runtimeError("Modulo by zero");
+                return std::fmod(std::get<double>(left), std::get<double>(right));
+            }
+            runtimeError("Operands must be numbers");
+            return nullptr;
             
         case TokenType::TOKEN_EQUAL_EQUAL:
             return isEqual(left, right);
@@ -215,6 +222,12 @@ Interpreter::visitBinaryExpr(const BinaryExpr& expr) {
             }
             runtimeError("Operands must be numbers");
             return nullptr;
+        case TokenType::TOKEN_GREATER_EQUAL:
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) >= std::get<double>(right);
+            }
+            runtimeError("Operands must be numbers");
+            return nullptr;
             
         case TokenType::TOKEN_LESS:
             if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
@@ -222,6 +235,16 @@ Interpreter::visitBinaryExpr(const BinaryExpr& expr) {
             }
             runtimeError("Operands must be numbers");
             return nullptr;
+        case TokenType::TOKEN_LESS_EQUAL:
+            if (std::holds_alternative<double>(left) && std::holds_alternative<double>(right)) {
+                return std::get<double>(left) <= std::get<double>(right);
+            }
+            runtimeError("Operands must be numbers");
+            return nullptr;
+        case TokenType::TOKEN_AND:
+            return isTruthy(left) && isTruthy(right);
+        case TokenType::TOKEN_OR:
+            return isTruthy(left) || isTruthy(right);
             
         default:
             runtimeError("Unknown operator");
@@ -241,6 +264,7 @@ Interpreter::visitUnaryExpr(const UnaryExpr& expr) {
             runtimeError("Operand must be a number");
             return nullptr;
         case TokenType::TOKEN_BANG:
+        case TokenType::TOKEN_NOT:
             return !isTruthy(right);
         default:
             runtimeError("Unknown operator");
