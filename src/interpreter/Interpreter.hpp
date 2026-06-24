@@ -14,6 +14,7 @@ namespace hulk {
 
 // Forward declarations
 class Environment;
+struct FunctionObject;
 
 // ============================================================
 // Interpreter - Evalúa el AST (tree-walk interpreter)
@@ -64,7 +65,7 @@ public:
 private:
     std::shared_ptr<Environment> globals;
     std::shared_ptr<Environment> environment;
-    std::unordered_map<const Expr*, int> locals;
+    std::unordered_map<const Expr*, int> locals; // resolution depth map
     
     // Helpers
     void execute(Stmt& stmt);
@@ -75,6 +76,10 @@ private:
     std::string stringify(const std::variant<double, std::string, bool, std::nullptr_t>& value) const;
     
     void runtimeError(const std::string& message);
+
+    // function call helper
+    std::variant<double, std::string, bool, std::nullptr_t> callFunction(const std::shared_ptr<FunctionObject>& fn,
+                                                                          const std::vector<std::variant<double, std::string, bool, std::nullptr_t>>& args);
 };
 
 // ============================================================
@@ -88,13 +93,25 @@ public:
     std::variant<double, std::string, bool, std::nullptr_t> get(const std::string& name) const;
     void assign(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value);
     
+    // for resolver: ancestor/getAt/assignAt
     std::shared_ptr<Environment> ancestor(int distance) const;
     std::variant<double, std::string, bool, std::nullptr_t> getAt(int distance, const std::string& name) const;
     void assignAt(int distance, const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value);
-    
+
+    // function storage (user-defined functions)
+    void defineFunction(const std::string& name, std::shared_ptr<FunctionObject> fn);
+    std::shared_ptr<FunctionObject> getFunction(const std::string& name) const;
+
 private:
     std::shared_ptr<Environment> enclosing;
     std::unordered_map<std::string, std::variant<double, std::string, bool, std::nullptr_t>> values;
+    std::unordered_map<std::string, std::shared_ptr<FunctionObject>> functions;
+};
+
+// Minimal FunctionObject (closure)
+struct FunctionObject {
+    const FunctionDeclStmt* decl = nullptr;
+    std::shared_ptr<Environment> closure;
 };
 
 } // namespace hulk
