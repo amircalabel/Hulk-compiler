@@ -5,6 +5,14 @@
 
 namespace hulk {
 
+// Simple exception type to handle returns from functions
+class ReturnException : public std::exception {
+public:
+    explicit ReturnException(std::variant<double, std::string, bool, std::nullptr_t> value) : value(std::move(value)) {}
+    const char* what() const noexcept override { return "Return"; }
+    std::variant<double, std::string, bool, std::nullptr_t> value;
+};
+
 // ============================================================
 // Interpreter Implementation
 // ============================================================
@@ -89,9 +97,11 @@ void Interpreter::visitPrintStmt(const PrintStmt& stmt) {
 }
 
 void Interpreter::visitReturnStmt(const ReturnStmt& stmt) {
+    std::variant<double, std::string, bool, std::nullptr_t> value = nullptr;
     if (stmt.value) {
-        evaluate(*stmt.value);
+        value = evaluate(*stmt.value);
     }
+    throw ReturnException(value);
 }
 
 void Interpreter::visitBlockStmt(const BlockStmt& stmt) {
@@ -116,8 +126,10 @@ void Interpreter::visitVarDeclStmt(const VarDeclStmt& stmt) {
 }
 
 void Interpreter::visitFunctionDeclStmt(const FunctionDeclStmt& stmt) {
-    // Por ahora, solo almacenamos que la función existe
-    environment->define(stmt.name.lexeme, nullptr);
+    auto fn = std::make_shared<FunctionObject>();
+    fn->decl = &stmt;
+    fn->closure = environment;
+    environment->defineFunction(stmt.name.lexeme, fn);
 }
 
 void Interpreter::visitClassDeclStmt(const ClassDeclStmt& stmt) {
@@ -150,7 +162,7 @@ void Interpreter::visitWhileStmt(const WhileStmt& stmt) {
 }
 
 void Interpreter::visitForStmt(const ForStmt& stmt) {
-    // Por ahora, simplificado
+    // For now, simplified
     if (stmt.body) {
         execute(*stmt.body);
     }
@@ -279,13 +291,22 @@ Interpreter::visitGroupingExpr(const GroupingExpr& expr) {
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitVariableExpr(const VariableExpr& expr) {
-    auto value = environment->get(expr.name.lexeme);
-    return value;
+    auto it = locals.find(&expr);
+    if (it != locals.end()) {
+        int distance = it->second;
+        return environment->getAt(distance, expr.name.lexeme);
+    }
+    return environment->get(expr.name.lexeme);
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitAssignExpr(const AssignExpr& expr) {
     auto value = evaluate(*expr.value);
+    auto it = locals.find(&expr);
+    if (it != locals.end()) {
+        environment->assignAt(it->second, expr.name.lexeme, value);
+        return value;
+    }
     environment->assign(expr.name.lexeme, value);
     return value;
 }
@@ -310,6 +331,12 @@ Interpreter::visitIfExpr(const IfExpr& expr) {
     auto condition = evaluate(*expr.condition);
     if (isTruthy(condition)) {
         return evaluate(*expr.thenBranch);
+    }
+    for (const auto& elif : expr.elifBranches) {
+        if (elif.first) {
+            auto cond = evaluate(*elif.first);
+            if (isTruthy(cond)) return evaluate(*elif.second);
+        }
     }
     if (expr.elseBranch) {
         return evaluate(*expr.elseBranch);
@@ -365,11 +392,63 @@ Interpreter::visitBlockExpr(const BlockExpr& expr) {
 
 std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitCallExpr(const CallExpr& expr) {
-    // Por ahora, las llamadas a funciones retornan nil
+    // If callee is a variable and matches \"print\", do builtin
+    if (auto var = dynamic_cast<VariableExpr*>(expr.callee.get())) {
+        if (var->name.lexeme == "print") {
+            if (!expr.arguments.empty()) {
+                auto val = evaluate(*expr.arguments[0]);
+                std::cout << stringify(val) << std::endl;
+            } else {
+                std::cout << std::endl;
+            }
+            return nullptr;
+        }
+        // user-defined function lookup
+        auto fn = environment->getFunction(var->name.lexeme);
+        if (fn) {
+            std::vector<std::variant<double, std::string, bool, std::nullptr_t>> args;
+            for (const auto& a : expr.arguments) args.push_back(evaluate(*a));
+            return callFunction(fn, args);
+        }
+    }
+
+    // Otherwise evaluate callee and args for side-effects
     evaluate(*expr.callee);
     for (const auto& arg : expr.arguments) {
         evaluate(*arg);
     }
+    return nullptr;
+}
+
+// ============================================================
+// Function call helper
+// ============================================================
+
+std::variant<double, std::string, bool, std::nullptr_t>
+Interpreter::callFunction(const std::shared_ptr<FunctionObject>& fn,
+                          const std::vector<std::variant<double, std::string, bool, std::nullptr_t>>& args) {
+    auto previous = environment;
+    // New environment enclosing the function's closure
+    environment = std::make_shared<Environment>(fn->closure);
+    // Bind parameters
+    const auto& params = fn->decl->parameters;
+    if (args.size() != params.size()) {
+        runtimeError("Arity mismatch when calling function '" + fn->decl->name.lexeme + "'");
+    }
+    for (size_t i = 0; i < params.size(); ++i) {
+        environment->define(params[i].name.lexeme, args[i]);
+    }
+
+    try {
+        for (const auto& s : fn->decl->body) {
+            if (s) execute(*s);
+        }
+    } catch (const ReturnException& ret) {
+        environment = previous;
+        return ret.value;
+    }
+
+    environment = previous;
     return nullptr;
 }
 
@@ -382,6 +461,17 @@ Environment::Environment(std::shared_ptr<Environment> enclosing)
 
 void Environment::define(const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value) {
     values[name] = value;
+}
+
+void Environment::defineFunction(const std::string& name, std::shared_ptr<FunctionObject> fn) {
+    functions[name] = fn;
+}
+
+std::shared_ptr<FunctionObject> Environment::getFunction(const std::string& name) const {
+    auto it = functions.find(name);
+    if (it != functions.end()) return it->second;
+    if (enclosing) return enclosing->getFunction(name);
+    return nullptr;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> Environment::get(const std::string& name) const {
@@ -413,19 +503,27 @@ void Environment::assign(const std::string& name, const std::variant<double, std
 }
 
 std::shared_ptr<Environment> Environment::ancestor(int distance) const {
-    std::shared_ptr<Environment> env = const_cast<Environment*>(this)->shared_from_this();
-    for (int i = 0; i < distance; i++) {
+    // Walk up `distance` times starting from this environment
+    auto env = const_cast<Environment*>(this)->shared_from_this();
+    for (int i = 0; i < distance; ++i) {
+        if (!env->enclosing) return nullptr;
         env = env->enclosing;
     }
     return env;
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> Environment::getAt(int distance, const std::string& name) const {
-    return ancestor(distance)->values.at(name);
+    auto env = ancestor(distance);
+    if (!env) return nullptr;
+    auto it = env->values.find(name);
+    if (it == env->values.end()) return nullptr;
+    return it->second;
 }
 
 void Environment::assignAt(int distance, const std::string& name, const std::variant<double, std::string, bool, std::nullptr_t>& value) {
-    ancestor(distance)->values[name] = value;
+    auto env = ancestor(distance);
+    if (!env) throw std::runtime_error("AssignAt: invalid distance");
+    env->values[name] = value;
 }
 
 } // namespace hulk
