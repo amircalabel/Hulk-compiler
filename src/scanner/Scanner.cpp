@@ -33,7 +33,8 @@ std::unordered_map<std::string, TokenType> Scanner::keywords = {
     {"not", TokenType::TOKEN_NOT},
     {"true", TokenType::TOKEN_TRUE},
     {"false", TokenType::TOKEN_FALSE},
-    {"nil", TokenType::TOKEN_NIL}
+    {"nil", TokenType::TOKEN_NIL},
+    {"var", TokenType::TOKEN_VAR} // <-- added var keyword
 };
 
 Scanner::Scanner(const std::string& source) : source(source) {}
@@ -103,19 +104,19 @@ void Scanner::scanToken() {
 
     // Single-character tokens
     switch (c) {
-        case '(': addToken(TokenType::TOKEN_LEFT_PAREN); break;
-        case ')': addToken(TokenType::TOKEN_RIGHT_PAREN); break;
-        case '{': addToken(TokenType::TOKEN_LEFT_BRACE); break;
-        case '}': addToken(TokenType::TOKEN_RIGHT_BRACE); break;
-        case ',': addToken(TokenType::TOKEN_COMMA); break;
-        case '.': addToken(TokenType::TOKEN_DOT); break;
-        case '-': addToken(TokenType::TOKEN_MINUS); break;
-        case '+': addToken(TokenType::TOKEN_PLUS); break;
-        case ';': addToken(TokenType::TOKEN_SEMICOLON); break;
-        case '*': addToken(TokenType::TOKEN_STAR); break;
-        case '%': addToken(TokenType::TOKEN_PERCENT); break;
-        case '^': addToken(TokenType::TOKEN_CARET); break;
-        case '@': {
+        case '(' : addToken(TokenType::TOKEN_LEFT_PAREN); break;
+        case ')' : addToken(TokenType::TOKEN_RIGHT_PAREN); break;
+        case '{' : addToken(TokenType::TOKEN_LEFT_BRACE); break;
+        case '}' : addToken(TokenType::TOKEN_RIGHT_BRACE); break;
+        case ',' : addToken(TokenType::TOKEN_COMMA); break;
+        case '.' : addToken(TokenType::TOKEN_DOT); break;
+        case '-' : addToken(TokenType::TOKEN_MINUS); break;
+        case '+' : addToken(TokenType::TOKEN_PLUS); break;
+        case ';' : addToken(TokenType::TOKEN_SEMICOLON); break;
+        case '*' : addToken(TokenType::TOKEN_STAR); break;
+        case '%' : addToken(TokenType::TOKEN_PERCENT); break;
+        case '^' : addToken(TokenType::TOKEN_CARET); break;
+        case '@' : {
             // @@ es el operador de concatenación con espacio
             if (peek() == '@') {
                 advance();
@@ -125,7 +126,7 @@ void Scanner::scanToken() {
             }
             break;
         }
-        case ':': {
+        case ':' : {
             if (match('=')) {
                 addToken(TokenType::TOKEN_COLON_EQUAL);  // :=
             } else {
@@ -133,7 +134,7 @@ void Scanner::scanToken() {
             }
             break;
         }
-        case '/': {
+        case '/' : {
             if (match('/')) {
                 // Comentario hasta fin de línea
                 while (peek() != '\n' && !isAtEnd()) advance();
@@ -142,10 +143,10 @@ void Scanner::scanToken() {
             }
             break;
         }
-        case '!':
+        case '!' :
             addToken(match('=') ? TokenType::TOKEN_BANG_EQUAL : TokenType::TOKEN_BANG);
             break;
-        case '=':
+        case '=' :
             if (match('>')) {
                 addToken(TokenType::TOKEN_ARROW);
             } else if (match('=')) {
@@ -154,10 +155,10 @@ void Scanner::scanToken() {
                 addToken(TokenType::TOKEN_EQUAL);
             }
             break;
-        case '<':
+        case '<' :
             addToken(match('=') ? TokenType::TOKEN_LESS_EQUAL : TokenType::TOKEN_LESS);
             break;
-        case '>':
+        case '>' :
             addToken(match('=') ? TokenType::TOKEN_GREATER_EQUAL : TokenType::TOKEN_GREATER);
             break;
         case ' ':

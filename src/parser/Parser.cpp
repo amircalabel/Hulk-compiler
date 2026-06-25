@@ -208,10 +208,27 @@ std::unique_ptr<Stmt> Parser::ifStatement() {
     auto condition = expression();
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after if condition.");
     auto thenBranch = statement();
+
+    // Collect elif branches
+    std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Stmt>>> elifs;
+    while (match(TokenType::TOKEN_ELIF)) {
+        consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'elif'.");
+        auto elifCond = expression();
+        consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after elif condition.");
+        auto elifBody = statement();
+        elifs.push_back({std::move(elifCond), std::move(elifBody)});
+    }
+
     std::unique_ptr<Stmt> elseBranch = nullptr;
     if (match(TokenType::TOKEN_ELSE)) {
         elseBranch = statement();
     }
+
+    // Build nested else-if chain from collected elifs (from last to first)
+    for (auto it = elifs.rbegin(); it != elifs.rend(); ++it) {
+        elseBranch = std::make_unique<IfStmt>(std::move(it->first), std::move(it->second), std::move(elseBranch));
+    }
+
     return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
 }
 
@@ -280,7 +297,8 @@ std::unique_ptr<Stmt> Parser::declaration() {
     if (match(TokenType::TOKEN_TYPE)) {
         return classDeclaration();
     }
-    if (match(TokenType::TOKEN_VAR)) {
+    // The scanner produces 'let' (TOKEN_LET). The parser was checking TOKEN_VAR — fix that.
+    if (match(TokenType::TOKEN_LET)) {
         return varDeclaration();
     }
     return statement();
@@ -687,7 +705,28 @@ std::unique_ptr<Expr> Parser::whileExpression() {
     return std::make_unique<WhileExpr>(std::move(condition), std::move(body));
 }
 
-std::unique_ptr<Expr> Parser::forExpression() { return nullptr; }
+std::unique_ptr<Expr> Parser::forExpression() {
+    // Parse for-expression: (initializer; condition; increment) body
+    consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    std::unique_ptr<Expr> initializer = nullptr;
+    if (!check(TokenType::TOKEN_SEMICOLON)) {
+        initializer = expression();
+    }
+    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after for initializer.");
+    std::unique_ptr<Expr> condition = nullptr;
+    if (!check(TokenType::TOKEN_SEMICOLON)) {
+        condition = expression();
+    }
+    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after for condition.");
+    std::unique_ptr<Expr> increment = nullptr;
+    if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
+        increment = expression();
+    }
+    consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+    auto body = expression();
+    return std::make_unique<ForExpr>(std::move(initializer), std::move(condition),
+                                     std::move(increment), std::move(body));
+}
 
 std::unique_ptr<Expr> Parser::blockExpression() {
     std::vector<std::unique_ptr<Expr>> expressions;

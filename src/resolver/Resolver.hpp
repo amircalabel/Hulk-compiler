@@ -4,7 +4,6 @@
 
 #include <memory>
 #include <vector>
-#include <stack>
 #include <unordered_map>
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
@@ -61,7 +60,8 @@ public:
 
 private:
     Interpreter& interpreter;
-    std::stack<std::unordered_map<std::string, bool>> scopes;
+    // Use vector so we can compute distances to scopes easily (index 0 = outermost)
+    std::vector<std::unordered_map<std::string, bool>> scopes;
     ResolverFunctionType currentFunction = ResolverFunctionType::NONE;
     ResolverClassType currentClass = ResolverClassType::NONE;
     
