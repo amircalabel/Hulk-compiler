@@ -1,0 +1,67 @@
+name: CI - Hulk tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Build and run tests (matrix)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+          if [ "${{ matrix.compiler }}" = "clang" ]; then sudo apt-get install -y clang; fi
+
+      - name: Select compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then echo "CC=gcc" >> $GITHUB_ENV; echo "CXX=g++" >> $GITHUB_ENV; fi
+          if [ "${{ matrix.compiler }}" = "clang" ]; then echo "CC=clang" >> $GITHUB_ENV; echo "CXX=clang++" >> $GITHUB_ENV; fi
+
+      - name: Build
+        env:
+          CC: ${{ env.CC }}
+          CXX: ${{ env.CXX }}
+        run: |
+          make clean || true
+          # try the canonical build target; fallback to `make`
+          if make build; then true; else make; fi
+
+      - name: Run compatibility tests
+        run: |
+          chmod +x tests/hulk/run_tests.sh
+          ./tests/hulk/run_tests.sh
+
+  lint:
+    name: clang-tidy (non-blocking)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang and clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang clang-tidy
+
+      - name: Run clang-tidy (best-effort)
+        run: |
+          FILES=$(git ls-files '*.cpp' || true)
+          if [ -z "${FILES}" ]; then
+            echo "No C++ files to lint.";
+            exit 0;
+          fi
+          echo "Running clang-tidy on: $FILES"
+          # Run clang-tidy but do not fail the job if it reports issues (best-effort)
+          for f in $FILES; do
+            clang-tidy "$f" -- -std=c++17 || true
+          done
