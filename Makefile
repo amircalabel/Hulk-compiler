@@ -1,7 +1,8 @@
 # Makefile para HULK Compiler
 # Ubicación: Raíz del proyecto
 
-CXX = g++
+CXX ?= g++
+CC ?= gcc
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 LDFLAGS = 
 
@@ -64,7 +65,7 @@ test: build
 	@echo "$(GREEN)🧪 Running tests...$(NC)"
 	@for test in tests/input/*.hulk; do \
 		echo "   Testing $$test"; \
-		./$(TARGET) "$$test"; \
+		./$(TARGET) "$${test}"; \
 	done
 
 # Mostrar ayuda
