@@ -14,7 +14,10 @@ public:
     void lexicalError(const std::string& message);
 
 private:
-    const std::string& source;
+    // NOTE: store source by value to avoid dangling reference when caller
+    // passes temporaries (e.g. Scanner("...")). Using a reference here
+    // caused undefined behavior in unit tests.
+    std::string source;
     std::vector<Token> tokens;
     int start = 0;
     int current = 0;
