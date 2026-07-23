@@ -330,11 +330,23 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
             if (i) dims += ", ";
             dims += genExpr(*e->dimensions[i], env);
         }
+        // If the initializer is a lambda like `i -> expr`, evaluate it per index.
+        if (e->initializer) {
+            if (auto* lam = dynamic_cast<const LambdaExpr*>(e->initializer.get())) {
+                std::string paramName = (lam->parameters.empty() ? "i" : lam->parameters[0].name.lexeme);
+                std::string childEnv = fresh("env");
+                std::string bodyExprPlaceholder = genExpr(*lam->body, childEnv);
+                return "([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); "
+                       "std::vector<HulkValue> __dims = {" + dims + "}; size_t __size = 1; for (auto& __d : __dims) { "
+                       "if (std::holds_alternative<std::nullptr_t>(__d)) continue; __size *= static_cast<size_t>(asNum(__d)); } "
+                       "for (size_t __i = 0; __i < __size; ++__i) { auto " + childEnv + " = std::make_shared<Environment>(" + env + "); "
+                       + childEnv + "->define(\"" + paramName + "\", HulkValue(static_cast<double>(__i))); __arr->values.push_back(" + bodyExprPlaceholder + "); } return HulkValue(__arr); })()";
+            }
+        }
         std::string init = e->initializer ? genExpr(*e->initializer, env) : "HulkValue(nullptr)";
         return "([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); "
                "std::vector<HulkValue> __dims = {" + dims + "}; size_t __size = 1; for (auto& __d : __dims) { "
-               "if (std::holds_alternative<std::nullptr_t>(__d)) continue; "
-               "__size *= static_cast<size_t>(asNum(__d)); } "
+               "if (std::holds_alternative<std::nullptr_t>(__d)) continue; __size *= static_cast<size_t>(asNum(__d)); } "
                "for (size_t __i = 0; __i < __size; ++__i) __arr->values.push_back(" + init + "); return HulkValue(__arr); })()";
     }
 

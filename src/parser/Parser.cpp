@@ -385,6 +385,9 @@ std::unique_ptr<Stmt> Parser::functionDeclaration(const std::string& kind) {
             Token paramType; paramType.type = TokenType::TOKEN_ERROR;
             if (match(TokenType::TOKEN_COLON)) {
                 paramType = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+                while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                    consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+                }
             }
             parameters.push_back({paramName, paramType});
         } while (match(TokenType::TOKEN_COMMA));
@@ -732,13 +735,20 @@ std::unique_ptr<Expr> Parser::primary() {
         return parseParenthesizedExpression();
     }
     // Support single-argument arrow lambdas like `i -> i * 2`
-    if (check(TokenType::TOKEN_IDENTIFIER) && peekNext().type == TokenType::TOKEN_ARROW) {
-        Token param = advance(); // consume identifier
-        advance(); // consume '->'
-        auto body = expression();
-        std::vector<LambdaExpr::Parameter> params;
-        params.push_back({param, Token{TokenType::TOKEN_ERROR, "", std::monostate{}, param.line}});
-        return std::make_unique<LambdaExpr>(std::move(params), Token{TokenType::TOKEN_ERROR, "", std::monostate{}, 0}, std::move(body));
+    if (check(TokenType::TOKEN_IDENTIFIER)) {
+        // Support 'ident -> body' where '->' may be tokenized as TOKEN_ARROW
+        // or as TOKEN_MINUS followed by TOKEN_GREATER (if whitespace present).
+        if (peekNext().type == TokenType::TOKEN_ARROW ||
+            (current + 2 < static_cast<int>(tokens.size()) && peekNext().type == TokenType::TOKEN_MINUS && tokens[current+2].type == TokenType::TOKEN_GREATER)) {
+            Token param = advance(); // consume identifier
+            // consume arrow token(s)
+            if (peek().type == TokenType::TOKEN_ARROW) advance();
+            else { advance(); advance(); } // consume '-' and '>'
+            auto body = expression();
+            std::vector<LambdaExpr::Parameter> params;
+            params.push_back({param, Token{TokenType::TOKEN_ERROR, "", std::monostate{}, param.line}});
+            return std::make_unique<LambdaExpr>(std::move(params), Token{TokenType::TOKEN_ERROR, "", std::monostate{}, 0}, std::move(body));
+        }
     }
     if (check(TokenType::TOKEN_FUNCTION)) {
         return lambdaExpression();
@@ -799,7 +809,20 @@ std::unique_ptr<Expr> Parser::newArrayExpression() {
     }
     std::unique_ptr<Expr> initializer = nullptr;
     if (match(TokenType::TOKEN_LEFT_BRACE)) {
-        initializer = expression();
+        // Special-case: support short lambda `i -> expr` as initializer when parser
+        // might not recognize it via primary(). Detect both TOKEN_ARROW and
+        // '-' '>' token sequences.
+        if (check(TokenType::TOKEN_IDENTIFIER) && (peekNext().type == TokenType::TOKEN_ARROW ||
+            (current + 2 < static_cast<int>(tokens.size()) && peekNext().type == TokenType::TOKEN_MINUS && tokens[current+2].type == TokenType::TOKEN_GREATER))) {
+            Token param = advance();
+            if (peek().type == TokenType::TOKEN_ARROW) advance(); else { advance(); advance(); }
+            auto body = expression();
+            std::vector<LambdaExpr::Parameter> params;
+            params.push_back({param, Token{TokenType::TOKEN_ERROR, "", std::monostate{}, param.line}});
+            initializer = std::make_unique<LambdaExpr>(std::move(params), Token{TokenType::TOKEN_ERROR, "", std::monostate{}, 0}, std::move(body));
+        } else {
+            initializer = expression();
+        }
         consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after array initializer.");
     }
     return std::make_unique<NewArrayExpr>(elementType, std::move(dimensions), std::move(initializer));
