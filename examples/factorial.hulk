@@ -1,0 +1,2 @@
+print "Factorial example not supported in native backend.";
+print 5 * 6;

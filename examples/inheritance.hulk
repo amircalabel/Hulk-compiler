@@ -1,0 +1,2 @@
+print "Inheritance example not supported in native backend.";
+print 2 + 3;

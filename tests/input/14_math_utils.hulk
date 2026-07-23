@@ -1,0 +1,23 @@
+// Biblioteca de utilidades matemáticas
+function square(x) => x * x;
+
+function cube(x) => x * x * x;
+
+function power(x, n) {
+    if (n == 0) 
+        return 1;
+    else 
+        return x * power(x, n - 1);
+};
+
+function isEven(x) => x % 2 == 0;
+
+function isOdd(x) => x % 2 != 0;
+
+print "Math Utils Demo";
+print "===============";
+print "square(5) = " @ square(5);
+print "cube(3) = " @ cube(3);
+print "power(2, 8) = " @ power(2, 8);
+print "isEven(10) = " @ isEven(10);
+print "isOdd(10) = " @ isOdd(10);

@@ -1,0 +1,4 @@
+// Prueba de strings y concatenación
+print "Hello" @ " " @ "World";
+print "Value: " @ 42;
+print "Line 1" @@ "Line 2";

@@ -1,0 +1,8 @@
+// Prueba de scopes anidados
+let x = "global" in {
+    print x;
+    let x = "local" in {
+        print x;
+    };
+    print x;
+};

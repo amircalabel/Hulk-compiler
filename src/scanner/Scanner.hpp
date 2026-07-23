@@ -1,0 +1,49 @@
+// src/scanner/Scanner.h
+#ifndef HULK_SCANNER_H
+#define HULK_SCANNER_H
+
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include "Token.hpp"
+
+class Scanner {
+public:
+    Scanner(const std::string& source);
+    std::vector<Token> scanTokens();
+    void lexicalError(const std::string& message);
+
+private:
+    // NOTE: store source by value to avoid dangling reference when caller
+    // passes temporaries (e.g. Scanner("...")). Using a reference here
+    // caused undefined behavior in unit tests.
+    std::string source;
+    std::vector<Token> tokens;
+    int start = 0;
+    int current = 0;
+    int line = 1;
+    int getColumn() const;
+
+    // Mapa de keywords (inicializado estáticamente)
+    static std::unordered_map<std::string, TokenType> keywords;
+
+    bool isAtEnd() const;
+    char advance();
+    char peek() const;
+    char peekNext() const;
+    bool match(char expected);
+    void addToken(TokenType type);
+    void addToken(TokenType type, const std::variant<std::monostate, double, std::string>& literal);
+
+    void scanToken();
+    void string();
+    void number();
+    void identifier();
+
+    // Helpers
+    bool isDigit(char c) const;
+    bool isAlpha(char c) const;
+    bool isAlphaNumeric(char c) const;
+};
+
+#endif // HULK_SCANNER_H

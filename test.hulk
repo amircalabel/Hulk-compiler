@@ -1,0 +1,77 @@
+// test_complete.hulk
+print "=== HULK Compiler - Test Completo ===";
+print "";
+
+print "--- 1. Literales ---";
+print 42;
+print 3.1416;
+print "Hello HULK!";
+print true;
+print false;
+print nil;
+print "";
+
+print "--- 2. Aritmética ---";
+print 1 + 2 * 3;
+print (10 - 5) / 2;
+print 2 ^ 3;
+print "5 % 2 = " @ (5 % 2);
+print "";
+
+print "--- 3. Variables ---";
+let x = 10, y = 20 in {
+    print "x = " @ x;
+    print "y = " @ y;
+    print "x + y = " @ (x + y);
+};
+print "";
+
+print "--- 4. Condicionales ---";
+let score = 85 in {
+    if (score >= 90)
+        print "A";
+    elif (score >= 80)
+        print "B";
+    elif (score >= 70)
+        print "C";
+    else
+        print "F";
+};
+print "";
+
+print "--- 5. Bucles ---";
+let sum = 0 in {
+    for (var i = 1; i <= 5; i = i + 1) {
+        sum := sum + i;
+        print "i=" @ i @ ", sum=" @ sum;
+    };
+};
+print "";
+
+print "--- 6. Funciones ---";
+function fact(n) {
+    if (n <= 1) return 1;
+    else return n * fact(n - 1);
+};
+print "fact(5) = " @ fact(5);
+
+function isEven(n) => n % 2 == 0;
+print "isEven(4) = " @ isEven(4);
+print "isEven(5) = " @ isEven(5);
+print "";
+
+print "--- 7. Clases ---";
+type Circle(radius) {
+    radius = radius;
+    area() => 3.1416 * self.radius * self.radius;
+    circumference() => 2 * 3.1416 * self.radius;
+}
+
+let c = new Circle(5) in {
+    print "Circle(5)";
+    print "  area = " @ c.area();
+    print "  circumference = " @ c.circumference();
+};
+print "";
+
+print "=== Test Completo Finalizado ===";
