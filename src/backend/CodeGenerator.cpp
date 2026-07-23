@@ -163,6 +163,12 @@ static HulkValue newInstance(const std::string& klass, std::vector<HulkValue> ar
     return nullptr;
 }
 static HulkValue callMethod(const HulkValue& objv, const std::string& name, std::vector<HulkValue> args) {
+    // Allow array-type values to respond to simple methods like `size()`.
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(objv)) {
+        if (name == "size") return arraySize(objv);
+        // Future: add other array helpers (push, pop, etc.) here.
+        return nullptr;
+    }
     if (!std::holds_alternative<std::shared_ptr<Instance>>(objv)) return nullptr;
     auto obj = std::get<std::shared_ptr<Instance>>(objv);
     std::string k = obj->klass;
@@ -414,7 +420,7 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
         std::string r = fresh("r");
         return "([&]() -> HulkValue { auto " + child + " = std::make_shared<Environment>(" + env +
                "); HulkValue " + r + " = nullptr; while (isTruthy(" + genExpr(*e->condition, child) + ")) { " +
-               genStmt(*e->body, child) + " " + r + " = HulkValue(nullptr); } return " + r + "; })()";
+               r + " = " + genExpr(*e->body, child) + "; } return " + r + "; })()";
     }
 
     if (auto* e = dynamic_cast<const ForExpr*>(&expr)) {
@@ -428,9 +434,9 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
         }
         std::string cond = e->condition ? genExpr(*e->condition, child) : "HulkValue(true)";
         std::string incr = e->increment ? genExpr(*e->increment, child) : "HulkValue(nullptr)";
-        return "([&]() -> HulkValue { auto " + child + " = std::make_shared<Environment>(" + env +
-               "); " + init + "HulkValue " + r + " = nullptr; while (isTruthy(" + cond + ")) { " +
-               genStmt(*e->body, child) + " " + incr + "; } return " + r + "; })()";
+         return "([&]() -> HulkValue { auto " + child + " = std::make_shared<Environment>(" + env +
+             "); " + init + "HulkValue " + r + " = nullptr; while (isTruthy(" + cond + ")) { " +
+             r + " = " + genExpr(*e->body, child) + "; " + incr + "; } return " + r + "; })()";
     }
 
     if (auto* e = dynamic_cast<const BlockExpr*>(&expr)) {

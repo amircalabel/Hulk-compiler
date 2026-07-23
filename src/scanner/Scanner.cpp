@@ -112,7 +112,11 @@ void Scanner::scanToken() {
         case ']' : addToken(TokenType::TOKEN_RIGHT_BRACKET); break;
         case ',' : addToken(TokenType::TOKEN_COMMA); break;
         case '.' : addToken(TokenType::TOKEN_DOT); break;
-        case '-' : addToken(TokenType::TOKEN_MINUS); break;
+        case '-' : {
+            if (peek() == '>') { advance(); addToken(TokenType::TOKEN_ARROW); }
+            else addToken(TokenType::TOKEN_MINUS);
+            break;
+        }
         case '+' : addToken(TokenType::TOKEN_PLUS); break;
         case ';' : addToken(TokenType::TOKEN_SEMICOLON); break;
         case '*' : addToken(TokenType::TOKEN_STAR); break;

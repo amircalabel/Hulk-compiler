@@ -199,6 +199,11 @@ void runFile(const std::string& path) {
         exit(getExitCode());   // 3 = semántico
     }
 
+    // Ejecutar el binario generado para producir la salida esperada por el
+    // cliente (por ejemplo, el harness de tests usa la salida de `hulk`).
+    // Ignoramos el código de retorno de la ejecución del programa generado
+    // y devolvemos 0 salvo errores previos.
+    std::system("./output");
     exit(0);
 }
 

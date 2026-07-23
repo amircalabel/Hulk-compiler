@@ -731,6 +731,15 @@ std::unique_ptr<Expr> Parser::primary() {
     if (match(TokenType::TOKEN_LEFT_PAREN)) {
         return parseParenthesizedExpression();
     }
+    // Support single-argument arrow lambdas like `i -> i * 2`
+    if (check(TokenType::TOKEN_IDENTIFIER) && peekNext().type == TokenType::TOKEN_ARROW) {
+        Token param = advance(); // consume identifier
+        advance(); // consume '->'
+        auto body = expression();
+        std::vector<LambdaExpr::Parameter> params;
+        params.push_back({param, Token{TokenType::TOKEN_ERROR, "", std::monostate{}, param.line}});
+        return std::make_unique<LambdaExpr>(std::move(params), Token{TokenType::TOKEN_ERROR, "", std::monostate{}, 0}, std::move(body));
+    }
     if (check(TokenType::TOKEN_FUNCTION)) {
         return lambdaExpression();
     }
@@ -738,7 +747,28 @@ std::unique_ptr<Expr> Parser::primary() {
         return arrayLiteralExpression();
     }
     if (match(TokenType::TOKEN_LEFT_BRACE)) {
-        return blockExpression();
+        // Heurística: si el contenido usa comas pero no punto y coma, tratar como literal de array `{a, b, c}`.
+        int j = current;
+        int depth = 0;
+        bool sawSemicolon = false;
+        while (j < static_cast<int>(tokens.size())) {
+            if (tokens[j].type == TokenType::TOKEN_LEFT_BRACE) depth++;
+            else if (tokens[j].type == TokenType::TOKEN_RIGHT_BRACE) {
+                if (depth == 0) break;
+                depth--;
+            } else if (tokens[j].type == TokenType::TOKEN_SEMICOLON) { sawSemicolon = true; break; }
+            j++;
+        }
+        if (sawSemicolon) return blockExpression();
+        // parse as brace array literal
+        std::vector<std::unique_ptr<Expr>> elements;
+        if (!check(TokenType::TOKEN_RIGHT_BRACE)) {
+            do {
+                elements.push_back(expression());
+            } while (match(TokenType::TOKEN_COMMA));
+        }
+        consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after array elements.");
+        return std::make_unique<ArrayLiteralExpr>(std::move(elements));
     }
     errorAtCurrent("Expect expression.");
     throw ParseError("Invalid expression");
