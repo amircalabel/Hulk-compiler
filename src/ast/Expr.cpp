@@ -138,6 +138,26 @@ std::variant<double, std::string, bool, std::nullptr_t> GetExpr::accept(ExprVisi
 }
 
 // ============================================================
+// IndexExpr
+// ============================================================
+IndexExpr::IndexExpr(std::unique_ptr<Expr> object, std::unique_ptr<Expr> index)
+    : object(std::move(object)), index(std::move(index)) {}
+
+std::variant<double, std::string, bool, std::nullptr_t> IndexExpr::accept(ExprVisitor& visitor) const {
+    return visitor.visitIndexExpr(*this);
+}
+
+// ============================================================
+// LambdaExpr
+// ============================================================
+LambdaExpr::LambdaExpr(std::vector<Parameter> parameters, Token returnTypeAnnotation, std::unique_ptr<Expr> body)
+    : parameters(std::move(parameters)), returnTypeAnnotation(returnTypeAnnotation), body(std::move(body)) {}
+
+std::variant<double, std::string, bool, std::nullptr_t> LambdaExpr::accept(ExprVisitor& visitor) const {
+    return visitor.visitLambdaExpr(*this);
+}
+
+// ============================================================
 // SetExpr
 // ============================================================
 SetExpr::SetExpr(std::unique_ptr<Expr> object, Token name, std::unique_ptr<Expr> value)

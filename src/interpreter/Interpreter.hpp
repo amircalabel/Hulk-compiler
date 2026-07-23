@@ -61,6 +61,8 @@ public:
     std::variant<double, std::string, bool, std::nullptr_t> visitForExpr(const ForExpr& expr) override;
     std::variant<double, std::string, bool, std::nullptr_t> visitBlockExpr(const BlockExpr& expr) override;
     std::variant<double, std::string, bool, std::nullptr_t> visitCallExpr(const CallExpr& expr) override;
+    std::variant<double, std::string, bool, std::nullptr_t> visitIndexExpr(const IndexExpr& expr) override;
+    std::variant<double, std::string, bool, std::nullptr_t> visitLambdaExpr(const LambdaExpr& expr) override;
     
 private:
     std::shared_ptr<Environment> globals;

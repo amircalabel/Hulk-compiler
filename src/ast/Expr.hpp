@@ -188,6 +188,35 @@ public:
 };
 
 // ============================================================
+// IndexExpr  (array[index])
+// ============================================================
+class IndexExpr : public Expr {
+public:
+    std::unique_ptr<Expr> object;
+    std::unique_ptr<Expr> index;
+
+    IndexExpr(std::unique_ptr<Expr> object, std::unique_ptr<Expr> index);
+    std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
+};
+
+// ============================================================
+// LambdaExpr  (function (x: Number): Number -> x * 2)
+// ============================================================
+class LambdaExpr : public Expr {
+public:
+    struct Parameter {
+        Token name;
+        Token typeAnnotation;
+    };
+    std::vector<Parameter> parameters;
+    Token returnTypeAnnotation;
+    std::unique_ptr<Expr> body;
+
+    LambdaExpr(std::vector<Parameter> parameters, Token returnTypeAnnotation, std::unique_ptr<Expr> body);
+    std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
+};
+
+// ============================================================
 // SetExpr  (object.property := value)
 // ============================================================
 class SetExpr : public Expr {
@@ -248,6 +277,8 @@ public:
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitSetExpr(const SetExpr&) { return nullptr; }
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitSelfExpr(const SelfExpr&) { return nullptr; }
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitNewExpr(const NewExpr&) { return nullptr; }
+    virtual std::variant<double, std::string, bool, std::nullptr_t> visitIndexExpr(const IndexExpr&) { return nullptr; }
+    virtual std::variant<double, std::string, bool, std::nullptr_t> visitLambdaExpr(const LambdaExpr&) { return nullptr; }
 };
 
 #endif // HULK_EXPR_HPP

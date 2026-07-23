@@ -7,6 +7,8 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::TOKEN_RIGHT_PAREN: return "RIGHT_PAREN";
         case TokenType::TOKEN_LEFT_BRACE: return "LEFT_BRACE";
         case TokenType::TOKEN_RIGHT_BRACE: return "RIGHT_BRACE";
+        case TokenType::TOKEN_LEFT_BRACKET: return "LEFT_BRACKET";
+        case TokenType::TOKEN_RIGHT_BRACKET: return "RIGHT_BRACKET";
         case TokenType::TOKEN_COMMA: return "COMMA";
         case TokenType::TOKEN_DOT: return "DOT";
         case TokenType::TOKEN_MINUS: return "MINUS";

@@ -397,6 +397,16 @@ Interpreter::visitBlockExpr(const BlockExpr& expr) {
 }
 
 std::variant<double, std::string, bool, std::nullptr_t> 
+Interpreter::visitIndexExpr(const IndexExpr&) {
+    return nullptr;
+}
+
+std::variant<double, std::string, bool, std::nullptr_t> 
+Interpreter::visitLambdaExpr(const LambdaExpr&) {
+    return nullptr;
+}
+
+std::variant<double, std::string, bool, std::nullptr_t> 
 Interpreter::visitCallExpr(const CallExpr& expr) {
     // If callee is a variable and matches \"print\", do builtin
     if (auto var = dynamic_cast<VariableExpr*>(expr.callee.get())) {

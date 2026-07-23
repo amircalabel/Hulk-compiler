@@ -336,7 +336,11 @@ std::unique_ptr<Stmt> Parser::varDeclaration() {
     Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect variable name.");
     Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
     if (match(TokenType::TOKEN_COLON)) {
-        typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+        if (check(TokenType::TOKEN_LEFT_PAREN)) {
+            typeAnnotation = Token{TokenType::TOKEN_IDENTIFIER, "function", std::monostate{}, name.line};
+        } else {
+            typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+        }
     }
     std::unique_ptr<Expr> initializer = nullptr;
     if (match(TokenType::TOKEN_EQUAL)) {
@@ -644,6 +648,10 @@ std::unique_ptr<Expr> Parser::call() {
         } else if (match(TokenType::TOKEN_DOT)) {
             Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect property name after '.'.");
             expr = std::make_unique<GetExpr>(std::move(expr), name);
+        } else if (match(TokenType::TOKEN_LEFT_BRACKET)) {
+            auto index = expression();
+            consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after index.");
+            expr = std::make_unique<IndexExpr>(std::move(expr), std::move(index));
         } else {
             break;
         }
@@ -695,6 +703,12 @@ std::unique_ptr<Expr> Parser::primary() {
     if (match(TokenType::TOKEN_LEFT_PAREN)) {
         return parseParenthesizedExpression();
     }
+    if (check(TokenType::TOKEN_FUNCTION)) {
+        return lambdaExpression();
+    }
+    if (match(TokenType::TOKEN_LEFT_BRACKET)) {
+        return arrayLiteralExpression();
+    }
     if (match(TokenType::TOKEN_LEFT_BRACE)) {
         return blockExpression();
     }
@@ -707,6 +721,47 @@ std::unique_ptr<Expr> Parser::newExpression() {
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after class name.");
     auto args = parseArguments();
     return std::make_unique<NewExpr>(className, std::move(args));
+}
+
+std::unique_ptr<Expr> Parser::lambdaExpression() {
+    if (match(TokenType::TOKEN_FUNCTION)) {
+        std::vector<LambdaExpr::Parameter> parameters;
+        if (match(TokenType::TOKEN_LEFT_PAREN)) {
+            if (!check(TokenType::TOKEN_RIGHT_PAREN)) {
+                do {
+                    Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect parameter name.");
+                    Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
+                    if (match(TokenType::TOKEN_COLON)) {
+                        typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+                    }
+                    parameters.push_back({name, typeAnnotation});
+                } while (match(TokenType::TOKEN_COMMA));
+            }
+            consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+        }
+        Token returnType; returnType.type = TokenType::TOKEN_ERROR;
+        if (match(TokenType::TOKEN_COLON)) {
+            returnType = consume(TokenType::TOKEN_IDENTIFIER, "Expect return type name.");
+        }
+        consume(TokenType::TOKEN_ARROW, "Expect '->' after lambda signature.");
+        auto body = expression();
+        return std::make_unique<LambdaExpr>(std::move(parameters), returnType, std::move(body));
+    }
+
+    // Fallback for cases like "let f: (Number) -> Number = function (...)".
+    auto body = expression();
+    return std::make_unique<LambdaExpr>(std::vector<LambdaExpr::Parameter>{}, Token{TokenType::TOKEN_ERROR, "", std::monostate{}, 0}, std::move(body));
+}
+
+std::unique_ptr<Expr> Parser::arrayLiteralExpression() {
+    std::vector<std::unique_ptr<Expr>> elements;
+    if (!check(TokenType::TOKEN_RIGHT_BRACKET)) {
+        do {
+            elements.push_back(expression());
+        } while (match(TokenType::TOKEN_COMMA));
+    }
+    consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array elements.");
+    return std::make_unique<LiteralExpr>(std::string("array"));
 }
 
 // ============================================================

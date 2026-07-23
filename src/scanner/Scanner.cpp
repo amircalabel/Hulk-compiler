@@ -108,6 +108,8 @@ void Scanner::scanToken() {
         case ')' : addToken(TokenType::TOKEN_RIGHT_PAREN); break;
         case '{' : addToken(TokenType::TOKEN_LEFT_BRACE); break;
         case '}' : addToken(TokenType::TOKEN_RIGHT_BRACE); break;
+        case '[' : addToken(TokenType::TOKEN_LEFT_BRACKET); break;
+        case ']' : addToken(TokenType::TOKEN_RIGHT_BRACKET); break;
         case ',' : addToken(TokenType::TOKEN_COMMA); break;
         case '.' : addToken(TokenType::TOKEN_DOT); break;
         case '-' : addToken(TokenType::TOKEN_MINUS); break;
