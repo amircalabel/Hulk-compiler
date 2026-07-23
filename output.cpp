@@ -9,11 +9,16 @@
 #include <map>
 
 struct Instance;
-using HulkValue = std::variant<double, std::string, bool, std::nullptr_t, std::shared_ptr<Instance>>;
+struct HulkArray;
+using HulkValue = std::variant<double, std::string, bool, std::nullptr_t, std::shared_ptr<Instance>, std::shared_ptr<HulkArray>>;
 
 struct Instance {
     std::string klass;
     std::unordered_map<std::string, HulkValue> fields;
+};
+
+struct HulkArray {
+    std::vector<HulkValue> values;
 };
 
 static bool isTruthy(const HulkValue& v) {
@@ -41,6 +46,9 @@ static std::string stringify(const HulkValue& v) {
         auto o = std::get<std::shared_ptr<Instance>>(v);
         return o ? (std::string("<") + o->klass + " instance>") : "nil";
     }
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(v)) {
+        return "[array]";
+    }
     return "unknown";
 }
 static bool valuesEqual(const HulkValue& a, const HulkValue& b) {
@@ -58,6 +66,32 @@ static HulkValue hMul(const HulkValue& a, const HulkValue& b) { return HulkValue
 static HulkValue hDiv(const HulkValue& a, const HulkValue& b) { double d = asNum(b); return HulkValue(d == 0.0 ? 0.0 : asNum(a) / d); }
 static HulkValue hMod(const HulkValue& a, const HulkValue& b) { double d = asNum(b); return HulkValue(d == 0.0 ? 0.0 : std::fmod(asNum(a), d)); }
 static HulkValue hPow(const HulkValue& a, const HulkValue& b) { return HulkValue(std::pow(asNum(a), asNum(b))); }
+static HulkValue arraySize(const HulkValue& a) { 
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        return HulkValue(static_cast<double>(std::get<std::shared_ptr<HulkArray>>(a)->values.size()));
+    }
+    return HulkValue(0.0);
+}
+static HulkValue arrayGet(const HulkValue& a, const HulkValue& idx) {
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        auto arr = std::get<std::shared_ptr<HulkArray>>(a);
+        long long i = static_cast<long long>(asNum(idx));
+        if (i >= 0 && i < static_cast<long long>(arr->values.size())) return arr->values[static_cast<size_t>(i)];
+    }
+    return HulkValue(nullptr);
+}
+static void arraySet(const HulkValue& a, const HulkValue& idx, const HulkValue& val) {
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        auto arr = std::get<std::shared_ptr<HulkArray>>(a);
+        long long i = static_cast<long long>(asNum(idx));
+        if (i >= 0) {
+            if (static_cast<size_t>(i) >= arr->values.size()) {
+                arr->values.resize(static_cast<size_t>(i) + 1, HulkValue(nullptr));
+            }
+            arr->values[static_cast<size_t>(i)] = val;
+        }
+    }
+}
 static HulkValue hConcat(const HulkValue& a, const HulkValue& b) { return HulkValue(stringify(a) + stringify(b)); }
 static HulkValue hConcatSp(const HulkValue& a, const HulkValue& b) { return HulkValue(stringify(a) + " " + stringify(b)); }
 static HulkValue hLt(const HulkValue& a, const HulkValue& b) { return HulkValue(asNum(a) < asNum(b)); }
@@ -140,6 +174,6 @@ static void __setup() {
 int main() {
     __setup();
     auto env = std::make_shared<Environment>();
-    ([&]() -> HulkValue { auto __env0 = std::make_shared<Environment>(env); __env0->define("x", HulkValue(!isTruthy(HulkValue(static_cast<double>(5))))); return ([&]() -> HulkValue { (isTruthy(hGe(__env0->get("x"), HulkValue(!isTruthy(HulkValue(static_cast<double>(5)))))) ? (([&]() -> HulkValue { HulkValue __v2 = (HulkValue(std::string("ok"))); std::cout << stringify(__v2) << std::endl; return __v2; })()) : (([&]() -> HulkValue { HulkValue __v1 = (HulkValue(std::string("fail"))); std::cout << stringify(__v1) << std::endl; return __v1; })())); (isTruthy(hGe(HulkValue(!isTruthy(__env0->get("x"))), HulkValue(static_cast<double>(5)))) ? (([&]() -> HulkValue { HulkValue __v4 = (HulkValue(std::string("ok"))); std::cout << stringify(__v4) << std::endl; return __v4; })()) : (([&]() -> HulkValue { HulkValue __v3 = (HulkValue(std::string("fail"))); std::cout << stringify(__v3) << std::endl; return __v3; })())); (isTruthy(hGe(hMod(__env0->get("x"), HulkValue(!isTruthy(HulkValue(static_cast<double>(2))))), HulkValue(static_cast<double>(10)))) ? (([&]() -> HulkValue { HulkValue __v6 = (HulkValue(std::string("ok"))); std::cout << stringify(__v6) << std::endl; return __v6; })()) : (([&]() -> HulkValue { HulkValue __v5 = (HulkValue(std::string("fail"))); std::cout << stringify(__v5) << std::endl; return __v5; })())); return (isTruthy(hGe(hDiv(__env0->get("x"), HulkValue(static_cast<double>(10))), HulkValue(static_cast<double>(5)))) ? (([&]() -> HulkValue { HulkValue __v8 = (HulkValue(std::string("ok"))); std::cout << stringify(__v8) << std::endl; return __v8; })()) : (([&]() -> HulkValue { HulkValue __v7 = (HulkValue(std::string("fail"))); std::cout << stringify(__v7) << std::endl; return __v7; })())); })(); })();
+    ([&]() -> HulkValue { auto __env0 = std::make_shared<Environment>(env); __env0->define("matrix", ([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); std::vector<HulkValue> __dims = {HulkValue(nullptr), HulkValue(static_cast<double>(3))}; size_t __size = 1; for (auto& __d : __dims) { if (std::holds_alternative<std::nullptr_t>(__d)) continue; __size *= static_cast<size_t>(asNum(__d)); } for (size_t __i = 0; __i < __size; ++__i) __arr->values.push_back(HulkValue(nullptr)); return HulkValue(__arr); })()); return ([&]() -> HulkValue { ([&]() -> HulkValue { auto __env1 = std::make_shared<Environment>(__env0); __env1->define("i", HulkValue(static_cast<double>(0))); return ([&]() -> HulkValue { auto __env3 = std::make_shared<Environment>(__env1); HulkValue __r2 = nullptr; while (isTruthy(hLt(__env3->get("i"), HulkValue(static_cast<double>(3))))) { __r2 = ([&]() -> HulkValue { ([&]() -> HulkValue { HulkValue __v4 = ([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); std::vector<HulkValue> __dims = {HulkValue(static_cast<double>(3))}; size_t __size = 1; for (auto& __d : __dims) { if (std::holds_alternative<std::nullptr_t>(__d)) continue; __size *= static_cast<size_t>(asNum(__d)); } for (size_t __i = 0; __i < __size; ++__i) __arr->values.push_back(HulkValue(nullptr)); return HulkValue(__arr); })(); arraySet(__env3->get("matrix"), __env3->get("i"), __v4); return __v4; })(); ([&]() -> HulkValue { auto __env5 = std::make_shared<Environment>(__env3); __env5->define("j", HulkValue(static_cast<double>(0))); return ([&]() -> HulkValue { auto __env7 = std::make_shared<Environment>(__env5); HulkValue __r6 = nullptr; while (isTruthy(hLt(__env7->get("j"), HulkValue(static_cast<double>(3))))) { __r6 = ([&]() -> HulkValue { ([&]() -> HulkValue { HulkValue __v8 = hAdd(hMul(__env7->get("i"), HulkValue(static_cast<double>(3))), __env7->get("j")); arraySet(arrayGet(__env7->get("matrix"), __env7->get("i")), __env7->get("j"), __v8); return __v8; })(); return ([&]() -> HulkValue { HulkValue __v9 = hAdd(__env7->get("j"), HulkValue(static_cast<double>(1))); __env7->assign("j", __v9); return __v9; })(); })(); } return __r6; })(); })(); return ([&]() -> HulkValue { HulkValue __v10 = hAdd(__env3->get("i"), HulkValue(static_cast<double>(1))); __env3->assign("i", __v10); return __v10; })(); })(); } return __r2; })(); })(); (isTruthy(hEq(arrayGet(arrayGet(__env0->get("matrix"), HulkValue(static_cast<double>(0))), HulkValue(static_cast<double>(0))), HulkValue(static_cast<double>(0)))) ? (([&]() -> HulkValue { HulkValue __v12 = (HulkValue(std::string("ok"))); std::cout << stringify(__v12) << std::endl; return __v12; })()) : (([&]() -> HulkValue { HulkValue __v11 = (HulkValue(std::string("fail"))); std::cout << stringify(__v11) << std::endl; return __v11; })())); (isTruthy(hEq(arrayGet(arrayGet(__env0->get("matrix"), HulkValue(static_cast<double>(1))), HulkValue(static_cast<double>(2))), HulkValue(static_cast<double>(5)))) ? (([&]() -> HulkValue { HulkValue __v14 = (HulkValue(std::string("ok"))); std::cout << stringify(__v14) << std::endl; return __v14; })()) : (([&]() -> HulkValue { HulkValue __v13 = (HulkValue(std::string("fail"))); std::cout << stringify(__v13) << std::endl; return __v13; })())); (isTruthy(hEq(arrayGet(arrayGet(__env0->get("matrix"), HulkValue(static_cast<double>(2))), HulkValue(static_cast<double>(1))), HulkValue(static_cast<double>(7)))) ? (([&]() -> HulkValue { HulkValue __v16 = (HulkValue(std::string("ok"))); std::cout << stringify(__v16) << std::endl; return __v16; })()) : (([&]() -> HulkValue { HulkValue __v15 = (HulkValue(std::string("fail"))); std::cout << stringify(__v15) << std::endl; return __v15; })())); return (isTruthy(hEq(arrayGet(arrayGet(__env0->get("matrix"), HulkValue(static_cast<double>(2))), HulkValue(static_cast<double>(2))), HulkValue(static_cast<double>(8)))) ? (([&]() -> HulkValue { HulkValue __v18 = (HulkValue(std::string("ok"))); std::cout << stringify(__v18) << std::endl; return __v18; })()) : (([&]() -> HulkValue { HulkValue __v17 = (HulkValue(std::string("fail"))); std::cout << stringify(__v17) << std::endl; return __v17; })())); })(); })();
     return 0;
 }

@@ -31,6 +31,7 @@ static const char* RUNTIME_HEADER = R"RT(#include <iostream>
 #include <map>
 
 struct Instance;
+struct HulkArray;
 using HulkValue = std::variant<double, std::string, bool, std::nullptr_t, std::shared_ptr<Instance>, std::shared_ptr<HulkArray>>;
 
 struct Instance {
@@ -105,7 +106,12 @@ static void arraySet(const HulkValue& a, const HulkValue& idx, const HulkValue& 
     if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
         auto arr = std::get<std::shared_ptr<HulkArray>>(a);
         long long i = static_cast<long long>(asNum(idx));
-        if (i >= 0 && i < static_cast<long long>(arr->values.size())) arr->values[static_cast<size_t>(i)] = val;
+        if (i >= 0) {
+            if (static_cast<size_t>(i) >= arr->values.size()) {
+                arr->values.resize(static_cast<size_t>(i) + 1, HulkValue(nullptr));
+            }
+            arr->values[static_cast<size_t>(i)] = val;
+        }
     }
 }
 static HulkValue hConcat(const HulkValue& a, const HulkValue& b) { return HulkValue(stringify(a) + stringify(b)); }
@@ -320,7 +326,9 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
         }
         std::string init = e->initializer ? genExpr(*e->initializer, env) : "HulkValue(nullptr)";
         return "([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); "
-               "std::vector<HulkValue> __dims = {" + dims + "}; size_t __size = 1; for (auto& __d : __dims) __size *= static_cast<size_t>(asNum(__d)); "
+               "std::vector<HulkValue> __dims = {" + dims + "}; size_t __size = 1; for (auto& __d : __dims) { "
+               "if (std::holds_alternative<std::nullptr_t>(__d)) continue; "
+               "__size *= static_cast<size_t>(asNum(__d)); } "
                "for (size_t __i = 0; __i < __size; ++__i) __arr->values.push_back(" + init + "); return HulkValue(__arr); })()";
     }
 
@@ -402,10 +410,11 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
     }
 
     if (auto* e = dynamic_cast<const WhileExpr*>(&expr)) {
+        std::string child = fresh("env");
         std::string r = fresh("r");
-        return "([&]() -> HulkValue { HulkValue " + r + " = nullptr; while (isTruthy(" +
-               genExpr(*e->condition, env) + ")) { " + r + " = " + genExpr(*e->body, env) +
-               "; } return " + r + "; })()";
+        return "([&]() -> HulkValue { auto " + child + " = std::make_shared<Environment>(" + env +
+               "); HulkValue " + r + " = nullptr; while (isTruthy(" + genExpr(*e->condition, child) + ")) { " +
+               genStmt(*e->body, child) + " " + r + " = HulkValue(nullptr); } return " + r + "; })()";
     }
 
     if (auto* e = dynamic_cast<const ForExpr*>(&expr)) {
@@ -421,7 +430,7 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
         std::string incr = e->increment ? genExpr(*e->increment, child) : "HulkValue(nullptr)";
         return "([&]() -> HulkValue { auto " + child + " = std::make_shared<Environment>(" + env +
                "); " + init + "HulkValue " + r + " = nullptr; while (isTruthy(" + cond + ")) { " +
-               r + " = " + genExpr(*e->body, child) + "; " + incr + "; } return " + r + "; })()";
+               genStmt(*e->body, child) + " " + incr + "; } return " + r + "; })()";
     }
 
     if (auto* e = dynamic_cast<const BlockExpr*>(&expr)) {
@@ -712,8 +721,6 @@ bool CodeGenerator::compileToBinary(const std::string& sourcePath, const std::st
         return false;
     }
     chmod(outputPath.c_str(), 0755);
-    std::remove(sourcePath.c_str());
-    std::remove((outputPath + ".log").c_str());
     return true;
 }
 

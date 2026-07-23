@@ -195,6 +195,9 @@ std::unique_ptr<Stmt> Parser::letBinding() {
         Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+            while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+            }
         }
         consume(TokenType::TOKEN_EQUAL, "Expect '=' after variable name.");
         auto initializer = expression();
@@ -321,6 +324,9 @@ std::unique_ptr<Stmt> Parser::forStatement() {
         Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+            while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+            }
         }
         std::unique_ptr<Expr> initExpr = nullptr;
         if (match(TokenType::TOKEN_EQUAL)) {
@@ -356,6 +362,9 @@ std::unique_ptr<Stmt> Parser::varDeclaration() {
             typeAnnotation = Token{TokenType::TOKEN_IDENTIFIER, "function", std::monostate{}, name.line};
         } else {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+            while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+            }
         }
     }
     std::unique_ptr<Expr> initializer = nullptr;
@@ -736,29 +745,27 @@ std::unique_ptr<Expr> Parser::primary() {
 }
 
 std::unique_ptr<Expr> Parser::newExpression() {
-    if (check(TokenType::TOKEN_IDENTIFIER)) {
-        Token className = peek();
-        if (peekNext().type == TokenType::TOKEN_LEFT_BRACKET) {
-            return newArrayExpression();
-        }
-        Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect class name after 'new'.");
-        consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after class name.");
-        auto args = parseArguments();
-        return std::make_unique<NewExpr>(name, std::move(args));
+    Token typeName = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name after 'new'.");
+    if (check(TokenType::TOKEN_LEFT_BRACKET)) {
+        return newArrayExpression();
     }
-
-    Token className = consume(TokenType::TOKEN_IDENTIFIER, "Expect class name after 'new'.");
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after class name.");
     auto args = parseArguments();
-    return std::make_unique<NewExpr>(className, std::move(args));
+    return std::make_unique<NewExpr>(typeName, std::move(args));
 }
 
 std::unique_ptr<Expr> Parser::newArrayExpression() {
-    Token elementType = consume(TokenType::TOKEN_IDENTIFIER, "Expect element type after 'new'.");
+    Token elementType = previous();
     std::vector<std::unique_ptr<Expr>> dimensions;
-    while (match(TokenType::TOKEN_LEFT_BRACKET)) {
-        dimensions.push_back(expression());
-        consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array dimension.");
+    while (check(TokenType::TOKEN_LEFT_BRACKET)) {
+        advance();
+        if (check(TokenType::TOKEN_RIGHT_BRACKET)) {
+            advance();
+            dimensions.push_back(nullptr);
+        } else {
+            dimensions.push_back(expression());
+            consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array dimension.");
+        }
     }
     std::unique_ptr<Expr> initializer = nullptr;
     if (match(TokenType::TOKEN_LEFT_BRACE)) {
@@ -820,6 +827,9 @@ std::unique_ptr<Expr> Parser::letExpression() {
         Token typeAnnotation; typeAnnotation.type = TokenType::TOKEN_ERROR;
         if (match(TokenType::TOKEN_COLON)) {
             typeAnnotation = consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+            while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+            }
         }
         consume(TokenType::TOKEN_EQUAL, "Expect '=' after variable name.");
         auto initializer = expression();
@@ -883,6 +893,9 @@ std::unique_ptr<Expr> Parser::forExpression() {
         Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect loop variable name.");
         if (match(TokenType::TOKEN_COLON)) {
             consume(TokenType::TOKEN_IDENTIFIER, "Expect type name.");
+            while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+                consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array type suffix.");
+            }
         }
         consume(TokenType::TOKEN_EQUAL, "Expect '=' in for initializer.");
         auto v = expression();
