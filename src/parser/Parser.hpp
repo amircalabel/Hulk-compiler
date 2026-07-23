@@ -49,11 +49,12 @@ private:
     // Parsing de declarations
     std::unique_ptr<Stmt> declaration();
     std::unique_ptr<Stmt> statement();
+    std::unique_ptr<Stmt> statement(bool allowOptionalSemicolon);
     
     // Statements
-    std::unique_ptr<Stmt> expressionStatement();
-    std::unique_ptr<Stmt> printStatement();
-    std::unique_ptr<Stmt> returnStatement();
+    std::unique_ptr<Stmt> expressionStatement(bool allowOptionalSemicolon = true);
+    std::unique_ptr<Stmt> printStatement(bool allowOptionalSemicolon = true);
+    std::unique_ptr<Stmt> returnStatement(bool allowOptionalSemicolon = true);
     std::unique_ptr<Stmt> blockStatement();
     std::unique_ptr<Stmt> ifStatement();
     void skipSemicolonBeforeElse();
@@ -85,6 +86,7 @@ private:
     std::unique_ptr<Expr> finishCall(std::unique_ptr<Expr> callee);
     std::unique_ptr<Expr> primary();
     std::unique_ptr<Expr> newExpression();
+    std::unique_ptr<Expr> newArrayExpression();
     std::unique_ptr<Expr> lambdaExpression();
     std::unique_ptr<Expr> arrayLiteralExpression();
     

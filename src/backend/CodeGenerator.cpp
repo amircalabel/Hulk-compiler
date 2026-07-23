@@ -31,11 +31,15 @@ static const char* RUNTIME_HEADER = R"RT(#include <iostream>
 #include <map>
 
 struct Instance;
-using HulkValue = std::variant<double, std::string, bool, std::nullptr_t, std::shared_ptr<Instance>>;
+using HulkValue = std::variant<double, std::string, bool, std::nullptr_t, std::shared_ptr<Instance>, std::shared_ptr<HulkArray>>;
 
 struct Instance {
     std::string klass;
     std::unordered_map<std::string, HulkValue> fields;
+};
+
+struct HulkArray {
+    std::vector<HulkValue> values;
 };
 
 static bool isTruthy(const HulkValue& v) {
@@ -63,6 +67,9 @@ static std::string stringify(const HulkValue& v) {
         auto o = std::get<std::shared_ptr<Instance>>(v);
         return o ? (std::string("<") + o->klass + " instance>") : "nil";
     }
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(v)) {
+        return "[array]";
+    }
     return "unknown";
 }
 static bool valuesEqual(const HulkValue& a, const HulkValue& b) {
@@ -80,6 +87,27 @@ static HulkValue hMul(const HulkValue& a, const HulkValue& b) { return HulkValue
 static HulkValue hDiv(const HulkValue& a, const HulkValue& b) { double d = asNum(b); return HulkValue(d == 0.0 ? 0.0 : asNum(a) / d); }
 static HulkValue hMod(const HulkValue& a, const HulkValue& b) { double d = asNum(b); return HulkValue(d == 0.0 ? 0.0 : std::fmod(asNum(a), d)); }
 static HulkValue hPow(const HulkValue& a, const HulkValue& b) { return HulkValue(std::pow(asNum(a), asNum(b))); }
+static HulkValue arraySize(const HulkValue& a) { 
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        return HulkValue(static_cast<double>(std::get<std::shared_ptr<HulkArray>>(a)->values.size()));
+    }
+    return HulkValue(0.0);
+}
+static HulkValue arrayGet(const HulkValue& a, const HulkValue& idx) {
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        auto arr = std::get<std::shared_ptr<HulkArray>>(a);
+        long long i = static_cast<long long>(asNum(idx));
+        if (i >= 0 && i < static_cast<long long>(arr->values.size())) return arr->values[static_cast<size_t>(i)];
+    }
+    return HulkValue(nullptr);
+}
+static void arraySet(const HulkValue& a, const HulkValue& idx, const HulkValue& val) {
+    if (std::holds_alternative<std::shared_ptr<HulkArray>>(a)) {
+        auto arr = std::get<std::shared_ptr<HulkArray>>(a);
+        long long i = static_cast<long long>(asNum(idx));
+        if (i >= 0 && i < static_cast<long long>(arr->values.size())) arr->values[static_cast<size_t>(i)] = val;
+    }
+}
 static HulkValue hConcat(const HulkValue& a, const HulkValue& b) { return HulkValue(stringify(a) + stringify(b)); }
 static HulkValue hConcatSp(const HulkValue& a, const HulkValue& b) { return HulkValue(stringify(a) + " " + stringify(b)); }
 static HulkValue hLt(const HulkValue& a, const HulkValue& b) { return HulkValue(asNum(a) < asNum(b)); }
@@ -262,8 +290,18 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
                "); return " + t + "; })()";
     }
 
+    if (auto* e = dynamic_cast<const SetIndexExpr*>(&expr)) {
+        std::string t = fresh("v");
+        return "([&]() -> HulkValue { HulkValue " + t + " = " + genExpr(*e->value, env) +
+               "; arraySet(" + genExpr(*e->object, env) + ", " + genExpr(*e->index, env) + ", " + t +
+               "); return " + t + "; })()";
+    }
+
     if (auto* e = dynamic_cast<const GetExpr*>(&expr))
         return "getField(" + genExpr(*e->object, env) + ", \"" + e->name.lexeme + "\")";
+
+    if (auto* e = dynamic_cast<const IndexExpr*>(&expr))
+        return "arrayGet(" + genExpr(*e->object, env) + ", " + genExpr(*e->index, env) + ")";
 
     if (auto* e = dynamic_cast<const NewExpr*>(&expr)) {
         std::string args;
@@ -272,6 +310,27 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
             args += genExpr(*e->arguments[i], env);
         }
         return "newInstance(\"" + e->className.lexeme + "\", {" + args + "})";
+    }
+
+    if (auto* e = dynamic_cast<const NewArrayExpr*>(&expr)) {
+        std::string dims;
+        for (size_t i = 0; i < e->dimensions.size(); ++i) {
+            if (i) dims += ", ";
+            dims += genExpr(*e->dimensions[i], env);
+        }
+        std::string init = e->initializer ? genExpr(*e->initializer, env) : "HulkValue(nullptr)";
+        return "([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values.clear(); "
+               "std::vector<HulkValue> __dims = {" + dims + "}; size_t __size = 1; for (auto& __d : __dims) __size *= static_cast<size_t>(asNum(__d)); "
+               "for (size_t __i = 0; __i < __size; ++__i) __arr->values.push_back(" + init + "); return HulkValue(__arr); })()";
+    }
+
+    if (auto* e = dynamic_cast<const ArrayLiteralExpr*>(&expr)) {
+        std::string elems;
+        for (size_t i = 0; i < e->elements.size(); ++i) {
+            if (i) elems += ", ";
+            elems += genExpr(*e->elements[i], env);
+        }
+        return "([&]() -> HulkValue { auto __arr = std::make_shared<HulkArray>(); __arr->values = {" + elems + "}; return HulkValue(__arr); })()";
     }
 
     if (auto* e = dynamic_cast<const CallExpr*>(&expr)) {
@@ -304,6 +363,8 @@ std::string CodeGenerator::genExpr(const Expr& expr, const std::string& env) {
                 return "HulkValue(" + uit->second + "(asNum(" + genExpr(*e->arguments[0], env) + ")))";
             if (name == "pow" && e->arguments.size() == 2)
                 return "hPow(" + genExpr(*e->arguments[0], env) + ", " + genExpr(*e->arguments[1], env) + ")";
+            if (name == "size" && e->arguments.size() == 1)
+                return "arraySize(" + genExpr(*e->arguments[0], env) + ")";
             if ((name == "min" || name == "max") && e->arguments.size() == 2) {
                 std::string a = genExpr(*e->arguments[0], env), b = genExpr(*e->arguments[1], env);
                 std::string cmp = (name == "min") ? "<" : ">";

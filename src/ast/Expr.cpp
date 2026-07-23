@@ -178,6 +178,26 @@ std::variant<double, std::string, bool, std::nullptr_t> SelfExpr::accept(ExprVis
 }
 
 // ============================================================
+// SetIndexExpr
+// ============================================================
+SetIndexExpr::SetIndexExpr(std::unique_ptr<Expr> object, std::unique_ptr<Expr> index, std::unique_ptr<Expr> value)
+    : object(std::move(object)), index(std::move(index)), value(std::move(value)) {}
+
+std::variant<double, std::string, bool, std::nullptr_t> SetIndexExpr::accept(ExprVisitor& visitor) const {
+    return visitor.visitSetIndexExpr(*this);
+}
+
+// ============================================================
+// ArrayLiteralExpr
+// ============================================================
+ArrayLiteralExpr::ArrayLiteralExpr(std::vector<std::unique_ptr<Expr>> elements)
+    : elements(std::move(elements)) {}
+
+std::variant<double, std::string, bool, std::nullptr_t> ArrayLiteralExpr::accept(ExprVisitor& visitor) const {
+    return visitor.visitArrayLiteralExpr(*this);
+}
+
+// ============================================================
 // NewExpr
 // ============================================================
 NewExpr::NewExpr(Token className, std::vector<std::unique_ptr<Expr>> arguments)
@@ -185,4 +205,14 @@ NewExpr::NewExpr(Token className, std::vector<std::unique_ptr<Expr>> arguments)
 
 std::variant<double, std::string, bool, std::nullptr_t> NewExpr::accept(ExprVisitor& visitor) const {
     return visitor.visitNewExpr(*this);
+}
+
+// ============================================================
+// NewArrayExpr
+// ============================================================
+NewArrayExpr::NewArrayExpr(Token elementType, std::vector<std::unique_ptr<Expr>> dimensions, std::unique_ptr<Expr> initializer)
+    : elementType(elementType), dimensions(std::move(dimensions)), initializer(std::move(initializer)) {}
+
+std::variant<double, std::string, bool, std::nullptr_t> NewArrayExpr::accept(ExprVisitor& visitor) const {
+    return visitor.visitNewArrayExpr(*this);
 }

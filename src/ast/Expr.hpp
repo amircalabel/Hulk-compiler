@@ -230,6 +230,19 @@ public:
 };
 
 // ============================================================
+// SetIndexExpr  (array[index] := value)
+// ============================================================
+class SetIndexExpr : public Expr {
+public:
+    std::unique_ptr<Expr> object;
+    std::unique_ptr<Expr> index;
+    std::unique_ptr<Expr> value;
+
+    SetIndexExpr(std::unique_ptr<Expr> object, std::unique_ptr<Expr> index, std::unique_ptr<Expr> value);
+    std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
+};
+
+// ============================================================
 // SelfExpr  (self)
 // ============================================================
 class SelfExpr : public Expr {
@@ -237,6 +250,17 @@ public:
     Token keyword;
 
     explicit SelfExpr(Token keyword);
+    std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
+};
+
+// ============================================================
+// ArrayLiteralExpr  ({a, b, c})
+// ============================================================
+class ArrayLiteralExpr : public Expr {
+public:
+    std::vector<std::unique_ptr<Expr>> elements;
+
+    explicit ArrayLiteralExpr(std::vector<std::unique_ptr<Expr>> elements);
     std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
 };
 
@@ -249,6 +273,19 @@ public:
     std::vector<std::unique_ptr<Expr>> arguments;
 
     NewExpr(Token className, std::vector<std::unique_ptr<Expr>> arguments);
+    std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
+};
+
+// ============================================================
+// NewArrayExpr  (new Type[dim1][dim2] { init })
+// ============================================================
+class NewArrayExpr : public Expr {
+public:
+    Token elementType;
+    std::vector<std::unique_ptr<Expr>> dimensions;
+    std::unique_ptr<Expr> initializer;
+
+    NewArrayExpr(Token elementType, std::vector<std::unique_ptr<Expr>> dimensions, std::unique_ptr<Expr> initializer);
     std::variant<double, std::string, bool, std::nullptr_t> accept(ExprVisitor& visitor) const override;
 };
 
@@ -278,6 +315,9 @@ public:
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitSelfExpr(const SelfExpr&) { return nullptr; }
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitNewExpr(const NewExpr&) { return nullptr; }
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitIndexExpr(const IndexExpr&) { return nullptr; }
+    virtual std::variant<double, std::string, bool, std::nullptr_t> visitSetIndexExpr(const SetIndexExpr&) { return nullptr; }
+    virtual std::variant<double, std::string, bool, std::nullptr_t> visitNewArrayExpr(const NewArrayExpr&) { return nullptr; }
+    virtual std::variant<double, std::string, bool, std::nullptr_t> visitArrayLiteralExpr(const ArrayLiteralExpr&) { return nullptr; }
     virtual std::variant<double, std::string, bool, std::nullptr_t> visitLambdaExpr(const LambdaExpr&) { return nullptr; }
 };
 

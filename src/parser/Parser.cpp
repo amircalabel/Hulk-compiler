@@ -206,34 +206,50 @@ std::unique_ptr<Stmt> Parser::letBinding() {
 }
 
 std::unique_ptr<Stmt> Parser::statement() {
-    if (match(TokenType::TOKEN_PRINT)) return printStatement();
-    if (match(TokenType::TOKEN_RETURN)) return returnStatement();
+    return statement(true);
+}
+
+std::unique_ptr<Stmt> Parser::statement(bool allowOptionalSemicolon) {
+    if (match(TokenType::TOKEN_PRINT)) return printStatement(allowOptionalSemicolon);
+    if (match(TokenType::TOKEN_RETURN)) return returnStatement(allowOptionalSemicolon);
     if (match(TokenType::TOKEN_IF)) return ifStatement();
     if (match(TokenType::TOKEN_WHILE)) return whileStatement();
     if (match(TokenType::TOKEN_FOR)) return forStatement();
     if (match(TokenType::TOKEN_LEFT_BRACE)) return blockStatement();
-    return expressionStatement();
+    return expressionStatement(allowOptionalSemicolon);
 }
 
-std::unique_ptr<Stmt> Parser::printStatement() {
+std::unique_ptr<Stmt> Parser::printStatement(bool allowOptionalSemicolon) {
     auto expr = expression();
-    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after value.");
+    if (allowOptionalSemicolon) {
+        consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after value.");
+    } else {
+        match(TokenType::TOKEN_SEMICOLON);
+    }
     return std::make_unique<PrintStmt>(std::move(expr));
 }
 
-std::unique_ptr<Stmt> Parser::returnStatement() {
+std::unique_ptr<Stmt> Parser::returnStatement(bool allowOptionalSemicolon) {
     Token keyword = previous();
     std::unique_ptr<Expr> value = nullptr;
     if (!check(TokenType::TOKEN_SEMICOLON)) {
         value = expression();
     }
-    consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after return value.");
+    if (allowOptionalSemicolon) {
+        consume(TokenType::TOKEN_SEMICOLON, "Expect ';' after return value.");
+    } else {
+        match(TokenType::TOKEN_SEMICOLON);
+    }
     return std::make_unique<ReturnStmt>(keyword, std::move(value));
 }
 
-std::unique_ptr<Stmt> Parser::expressionStatement() {
+std::unique_ptr<Stmt> Parser::expressionStatement(bool allowOptionalSemicolon) {
     auto expr = expression();
-    match(TokenType::TOKEN_SEMICOLON);
+    if (allowOptionalSemicolon) {
+        match(TokenType::TOKEN_SEMICOLON);
+    } else {
+        match(TokenType::TOKEN_SEMICOLON);
+    }
     return std::make_unique<ExpressionStmt>(std::move(expr));
 }
 
@@ -252,7 +268,7 @@ std::unique_ptr<Stmt> Parser::ifStatement() {
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     auto condition = expression();
     consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after if condition.");
-    auto thenBranch = statement();
+    auto thenBranch = statement(false);
     skipSemicolonBeforeElse();
 
     std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Stmt>>> elifs;
@@ -260,14 +276,14 @@ std::unique_ptr<Stmt> Parser::ifStatement() {
         consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after 'elif'.");
         auto elifCond = expression();
         consume(TokenType::TOKEN_RIGHT_PAREN, "Expect ')' after elif condition.");
-        auto elifBody = statement();
+        auto elifBody = statement(false);
         skipSemicolonBeforeElse();
         elifs.push_back({std::move(elifCond), std::move(elifBody)});
     }
 
     std::unique_ptr<Stmt> elseBranch = nullptr;
     if (match(TokenType::TOKEN_ELSE)) {
-        elseBranch = statement();
+        elseBranch = statement(false);
     }
 
     for (auto it = elifs.rbegin(); it != elifs.rend(); ++it) {
@@ -538,6 +554,9 @@ std::unique_ptr<Expr> Parser::assignment() {
         if (auto* getExpr = dynamic_cast<GetExpr*>(expr.get())) {
             return std::make_unique<SetExpr>(std::move(getExpr->object), getExpr->name, std::move(value));
         }
+        if (auto* indexExpr = dynamic_cast<IndexExpr*>(expr.get())) {
+            return std::make_unique<SetIndexExpr>(std::move(indexExpr->object), std::move(indexExpr->index), std::move(value));
+        }
         error(op, "Invalid assignment target.");
         return value;
     }
@@ -717,10 +736,36 @@ std::unique_ptr<Expr> Parser::primary() {
 }
 
 std::unique_ptr<Expr> Parser::newExpression() {
+    if (check(TokenType::TOKEN_IDENTIFIER)) {
+        Token className = peek();
+        if (peekNext().type == TokenType::TOKEN_LEFT_BRACKET) {
+            return newArrayExpression();
+        }
+        Token name = consume(TokenType::TOKEN_IDENTIFIER, "Expect class name after 'new'.");
+        consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after class name.");
+        auto args = parseArguments();
+        return std::make_unique<NewExpr>(name, std::move(args));
+    }
+
     Token className = consume(TokenType::TOKEN_IDENTIFIER, "Expect class name after 'new'.");
     consume(TokenType::TOKEN_LEFT_PAREN, "Expect '(' after class name.");
     auto args = parseArguments();
     return std::make_unique<NewExpr>(className, std::move(args));
+}
+
+std::unique_ptr<Expr> Parser::newArrayExpression() {
+    Token elementType = consume(TokenType::TOKEN_IDENTIFIER, "Expect element type after 'new'.");
+    std::vector<std::unique_ptr<Expr>> dimensions;
+    while (match(TokenType::TOKEN_LEFT_BRACKET)) {
+        dimensions.push_back(expression());
+        consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array dimension.");
+    }
+    std::unique_ptr<Expr> initializer = nullptr;
+    if (match(TokenType::TOKEN_LEFT_BRACE)) {
+        initializer = expression();
+        consume(TokenType::TOKEN_RIGHT_BRACE, "Expect '}' after array initializer.");
+    }
+    return std::make_unique<NewArrayExpr>(elementType, std::move(dimensions), std::move(initializer));
 }
 
 std::unique_ptr<Expr> Parser::lambdaExpression() {
@@ -761,7 +806,7 @@ std::unique_ptr<Expr> Parser::arrayLiteralExpression() {
         } while (match(TokenType::TOKEN_COMMA));
     }
     consume(TokenType::TOKEN_RIGHT_BRACKET, "Expect ']' after array elements.");
-    return std::make_unique<LiteralExpr>(std::string("array"));
+    return std::make_unique<ArrayLiteralExpr>(std::move(elements));
 }
 
 // ============================================================
